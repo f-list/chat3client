@@ -1,9 +1,14 @@
 const path = require('path');
 const fs = require('fs');
-const ForkTsCheckerWebpackPlugin = require('@f-list/fork-ts-checker-webpack-plugin');
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 const VueLoaderPlugin = require('vue-loader/lib/plugin');
-const vueTransformer = require('@f-list/vue-ts/transform').default;
+const vueTransformer = require('../tools/vue-ts-transform');
+const CopyPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const { DefinePlugin } = require('webpack');
+const packageJson = require('./package.json');
+const APP_VERSION = process.env.APP_VERSION || packageJson.version;
 
 const mainConfig = {
     entry: [path.join(__dirname, 'main.ts'), path.join(__dirname, 'package.json')],
@@ -23,8 +28,8 @@ const mainConfig = {
                     transpileOnly: true
                 }
             },
-            {test: path.join(__dirname, 'package.json'), loader: 'file-loader?name=package.json', type: 'javascript/auto'},
-            {test: /\.(png|html)$/, loader: 'file-loader?name=[name].[ext]'}
+            {test: path.join(__dirname, 'package.json'), loader: 'file-loader', options: {name: 'package.json', esModule: false}, type: 'javascript/auto'},
+            {test: /\.(png|html)$/, loader: 'file-loader', options: {name: '[name].[ext]', esModule: false}}
         ]
     },
     node: {
@@ -34,8 +39,12 @@ const mainConfig = {
     plugins: [
         new ForkTsCheckerWebpackPlugin({
             async: false,
-            tslint: path.join(__dirname, '../tslint.json'),
-            tsconfig: './tsconfig-main.json'
+            typescript: {
+                configFile: path.join(__dirname, 'tsconfig-main.json')
+            }
+        }),
+        new DefinePlugin({
+            'process.env.APP_VERSION': JSON.stringify(APP_VERSION)
         })
     ],
     resolve: {
@@ -48,6 +57,7 @@ const mainConfig = {
     },
     output: {
         path: __dirname + '/app',
+        publicPath: './',
         filename: '[name].js'
     },
     context: __dirname,
@@ -73,14 +83,67 @@ const mainConfig = {
                     getCustomTransformers: () => ({before: [vueTransformer]})
                 }
             },
-            {test: /\.eot(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader'},
-            {test: /\.(woff2?)$/, loader: 'file-loader'},
-            {test: /\.ttf(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader'},
-            {test: /\.svg(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader'},
-            {test: /\.(wav|mp3|ogg)$/, loader: 'file-loader?name=sounds/[name].[ext]'},
-            {test: /\.(png|html)$/, loader: 'file-loader?name=[name].[ext]'},
-            {test: /\.vue\.scss/, loader: ['vue-style-loader','css-loader','sass-loader']},
-            {test: /\.vue\.css/, loader: ['vue-style-loader','css-loader']},
+            {test: /\.eot(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader', options: {esModule: false}},
+            {test: /\.(woff2?)$/, loader: 'file-loader', options: {esModule: false}},
+            {test: /\.ttf(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader', options: {esModule: false}},
+            {test: /\.svg(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader', options: {esModule: false}},
+            {test: /\.(wav|mp3|ogg)$/, loader: 'file-loader', options: {name: 'sounds/[name].[ext]', esModule: false}},
+            {test: /\.(png|html)$/, loader: 'file-loader', options: {name: '[name].[ext]', esModule: false}},
+            {
+                test: /\.vue\.scss/,
+                use: [
+                    'vue-style-loader',
+                    {loader: 'css-loader', options: {esModule: false}},
+                    {
+                        loader: 'sass-loader',
+                        options: {
+                            warnRuleAsWarning: false,
+                            sassOptions: {
+                                quietDeps: true,
+                                silenceDeprecations: [
+                                    'mixed-decls',
+                                    'import',
+                                    'color-functions',
+                                    'global-builtin',
+                                    'slash-div',
+                                    'function-units'
+                                ],
+                                verbose: false
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                test: /\.vue\.css/,
+                use: ['vue-style-loader', {loader: 'css-loader', options: {esModule: false}}]
+            },
+            {
+                test: /\.scss$/,
+                exclude: /\.vue$/,
+                use: [
+                    MiniCssExtractPlugin.loader,
+                    {loader: 'css-loader', options: {esModule: false}},
+                    {
+                        loader: 'sass-loader',
+                        options: {
+                            warnRuleAsWarning: false,
+                            sassOptions: {
+                                quietDeps: true,
+                                silenceDeprecations: [
+                                    'mixed-decls',
+                                    'import',
+                                    'color-functions',
+                                    'global-builtin',
+                                    'slash-div',
+                                    'function-units'
+                                ],
+                                verbose: false
+                            }
+                        }
+                    }
+                ]
+            }
         ]
     },
     node: {
@@ -90,39 +153,81 @@ const mainConfig = {
     plugins: [
         new ForkTsCheckerWebpackPlugin({
             async: false,
-            tslint: path.join(__dirname, '../tslint.json'),
-            tsconfig: './tsconfig-renderer.json',
-            vue: true
+            typescript: {
+                configFile: path.join(__dirname, 'tsconfig-renderer.json')
+            }
         }),
-        new VueLoaderPlugin()
+        new DefinePlugin({
+            'process.env.APP_VERSION': JSON.stringify(APP_VERSION)
+        }),
+        new VueLoaderPlugin(),
+        new MiniCssExtractPlugin({
+            filename: '[name].css'
+        }),
+        new CopyPlugin({
+            patterns: [
+                {
+                    from: path.resolve(__dirname, '..', 'chat', 'preview', 'assets', '**', '*').replace(/\\/g, '/'),
+                    to: path.join('preview', 'assets'),
+                    context: path.resolve(__dirname, '..', 'chat', 'preview', 'assets'),
+                    noErrorOnMissing: true
+                },
+                {
+                    from: path.resolve(__dirname, '..', 'assets', '**', '*').replace(/\\/g, '/'),
+                    to: path.join('assets'),
+                    context: path.resolve(__dirname, '..', 'assets'),
+                    noErrorOnMissing: true
+                },
+                {
+                    from: path.resolve(__dirname, '..', 'chat', 'sound-themes', '**', '*').replace(/\\/g, '/'),
+                    to: path.join('sound-themes'),
+                    context: path.resolve(__dirname, '..', 'chat', 'sound-themes'),
+                    noErrorOnMissing: true
+                },
+                {
+                    from: path.join(__dirname, 'package.json'),
+                    to: 'package.json',
+                    transform(content) {
+                        const json = JSON.parse(content.toString());
+                        delete json.build;
+                        return JSON.stringify(json, null, 2);
+                    }
+                }
+            ]
+        })
     ],
     resolve: {
-        extensions: ['.ts', '.js', '.vue', '.css'],
-        alias: {qs: 'querystring'}
+        extensions: ['.ts', '.js', '.vue', '.css']
     },
     optimization: {
-        splitChunks: {chunks: 'all', minChunks: 2, name: 'common'}
+        splitChunks: {chunks: 'all', minChunks: 2, name: 'common'},
+        moduleIds: 'named',
+        chunkIds: 'named'
     }
 };
 
 module.exports = function(mode) {
     const themesDir = path.join(__dirname, '../scss/themes/chat');
     const themes = fs.readdirSync(themesDir);
+    const themeEntries = {};
     for(const theme of themes) {
         if(!theme.endsWith('.scss')) continue;
         const absPath = path.join(themesDir, theme);
-        rendererConfig.entry.chat.push(absPath);
-        rendererConfig.module.rules.unshift({test: absPath, loader: ['file-loader?name=themes/[name].css', 'extract-loader', 'css-loader', 'sass-loader']});
+        const themeName = theme.replace('.scss', '');
+        themeEntries[`themes/${themeName}`] = absPath;
     }
     const faPath = path.join(themesDir, '../../fa.scss');
-    rendererConfig.entry.chat.push(faPath);
-    rendererConfig.module.rules.unshift({test: faPath, loader: ['file-loader?name=fa.css', 'extract-loader', 'css-loader', 'sass-loader']});
+    themeEntries['fa'] = faPath;
+    rendererConfig.entry = {
+        ...rendererConfig.entry,
+        ...themeEntries
+    };
     if(mode === 'production') {
         process.env.NODE_ENV = 'production';
-        mainConfig.devtool = rendererConfig.devtool = 'source-map';
+        mainConfig.devtool = rendererConfig.devtool = false;
         rendererConfig.plugins.push(new OptimizeCssAssetsPlugin());
     } else {
-        mainConfig.devtool = rendererConfig.devtool = 'none';
+        mainConfig.devtool = rendererConfig.devtool = 'inline-source-map';
     }
     return [mainConfig, rendererConfig];
 };

@@ -1,7 +1,8 @@
 const path = require('path');
-const ForkTsCheckerWebpackPlugin = require('@f-list/fork-ts-checker-webpack-plugin');
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const VueLoaderPlugin = require('vue-loader/lib/plugin');
-const vueTransformer = require('@f-list/vue-ts/transform').default;
+const vueTransformer = require('../tools/vue-ts-transform');
+const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
 
 const config = {
     entry: {
@@ -39,16 +40,36 @@ const config = {
             {test: /\.svg(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader'},
             {test: /\.(wav|mp3|ogg)$/, loader: 'file-loader?name=sounds/[name].[ext]'},
             {test: /\.(png|html)$/, loader: 'file-loader?name=[name].[ext]'},
-            {test: /(?<!\.vue)\.scss/, use: ['css-loader', 'sass-loader']},
-            {test: /\.vue\.scss/, loader: ['vue-style-loader','css-loader','sass-loader']},
-            {test: /\.vue\.css/, loader: ['vue-style-loader','css-loader']},
+            {
+                test: /(?<!\.vue)\.scss/,
+                use: [{loader: 'css-loader', options: {esModule: false}}, 'sass-loader']
+            },
+            {
+                test: /\.vue\.scss/,
+                use: ['vue-style-loader', {loader: 'css-loader', options: {esModule: false}}, 'sass-loader']
+            },
+            {
+                test: /\.vue\.css/,
+                use: ['vue-style-loader', {loader: 'css-loader', options: {esModule: false}}]
+            },
         ]
     },
     plugins: [
-        new ForkTsCheckerWebpackPlugin({async: false, vue: true, tslint: path.join(__dirname, '../tslint.json')}),
-        new VueLoaderPlugin()
+        new ForkTsCheckerWebpackPlugin({
+            async: false,
+            typescript: {
+                configFile: path.join(__dirname, 'tsconfig.json')
+            }
+        }),
+        new VueLoaderPlugin(),
+        new NodePolyfillPlugin()
     ],
     resolve: {
+        fallback: {
+            fs: false,
+            tls: false,
+            net: false
+        },
         'extensions': ['.ts', '.js', '.vue', '.scss']
     }
 };
