@@ -6,11 +6,93 @@
   "main": "main.js",
   "id": "fchat",
   "license": "MIT",
+  "build": {
+    "appId": "net.flist.fchat",
+    "productName": "F-Chat",
+    "artifactName": "F-Chat-${os}-${arch}.${ext}",
+    "directories": {
+      "app": "app",
+      "output": "dist"
+    },
+    "nativeRebuilder": "parallel",
+    "files": [
+      "**/*"
+    ],
+    "asarUnpack": [
+      "themes/**/*",
+      "sound-themes/**/*"
+    ],
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "F-Chat"
+    },
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.social-networking",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "icon": "build/icon.icns",
+      "background": "build/dmg.png",
+      "contents": [
+        {
+          "x": 554,
+          "y": 110
+        },
+        {
+          "x": 554,
+          "y": 344,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 658,
+        "height": 498
+      }
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "maintainer": "The F-List Team",
+      "executableName": "fchat",
+      "desktop": {
+        "entry": {
+          "Name": "F-Chat",
+          "Comment": "The F-Chat Client",
+          "Terminal": "false",
+          "Type": "Application",
+          "StartupWMClass": "F-Chat",
+          "Categories": "Network;Chat;"
+        }
+      }
+    },
+    "rpm": {
+      "fpm": [
+        "--rpm-rpmbuild-define=_build_id_links none"
+      ]
+    }
+  },
   "scripts": {
     "build": "node ../webpack development",
     "build:dist": "node ../webpack production",
     "watch": "node ../webpack watch",
-    "start": "../node_modules/.bin/electron app",
-    "pack": "node ./pack"
+    "start": "electron app",
+    "pack": "electron-builder",
+    "build:win": "node build/build.mjs --os windows --format nsis",
+    "build:linux": "node build/build.mjs --os linux --format deb AppImage",
+    "build:mac": "node build/build.mjs --os macos --format dmg zip"
+  },
+  "devDependencies": {
+    "electron": "39.2.7",
+    "electron-builder": "^26.3.2"
   }
 }
