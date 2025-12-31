@@ -30,9 +30,9 @@
  * @see {@link https://github.com/f-list/exported|GitHub repo}
  */
 import Axios from 'axios';
-import {exec, execSync, spawn} from 'child_process';
+import {execSync, spawn} from 'child_process';
 import * as electron from 'electron';
-import * as path from 'path';
+import * as remote from '@electron/remote';
 import * as qs from 'querystring';
 import {getKey} from '../chat/common';
 import {init as initCore} from '../chat/core';
@@ -41,35 +41,27 @@ import {setupRaven} from '../chat/vue-raven';
 import Socket from '../chat/WebSocket';
 import Connection from '../fchat/connection';
 import {Keys} from '../keys';
-import {GeneralSettings, nativeRequire} from './common';
+import {GeneralSettings} from './common';
 import {Logs, SettingsStore} from './filesystem';
 import * as SlimcatImporter from './importer';
 import Index from './Index.vue';
 import Notifications from './notifications';
 
+const webContents = remote.getCurrentWebContents();
+// tslint:disable-next-line:no-require-imports no-submodule-imports
+require('@electron/remote/main').enable(webContents);
+
 document.addEventListener('keydown', (e: KeyboardEvent) => {
     if(e.ctrlKey && e.shiftKey && getKey(e) === Keys.KeyI)
-        electron.remote.getCurrentWebContents().toggleDevTools();
+        remote.getCurrentWebContents().toggleDevTools();
 });
 
-process.env.SPELLCHECKER_PREFER_HUNSPELL = '1';
-const sc = nativeRequire<{
-    Spellchecker: new() => {
-        add(word: string): void
-        remove(word: string): void
-        isMisspelled(x: string): boolean
-        setDictionary(name: string | undefined, dir: string): void
-        getCorrectionsForMisspelling(word: string): ReadonlyArray<string>
-    }
-}>('spellchecker/build/Release/spellchecker.node');
-const spellchecker = new sc.Spellchecker();
-
-Axios.defaults.params = {__fchat: `desktop/${electron.remote.app.getVersion()}`};
+Axios.defaults.params = {__fchat: `desktop/${remote.app.getVersion()}`};
 
 if(process.env.NODE_ENV === 'production') {
-    setupRaven('https://a9239b17b0a14f72ba85e8729b9d1612@sentry.f-list.net/2', electron.remote.app.getVersion());
+    setupRaven('https://a9239b17b0a14f72ba85e8729b9d1612@sentry.f-list.net/2', remote.app.getVersion());
 
-    electron.remote.getCurrentWebContents().on('devtools-opened', () => {
+    remote.getCurrentWebContents().on('devtools-opened', () => {
         console.log(`%c${l('consoleWarning.head')}`, 'background: red; color: yellow; font-size: 30pt');
         console.log(`%c${l('consoleWarning.body')}`, 'font-size: 16pt; color:red');
     });
@@ -100,13 +92,11 @@ function openIncognito(url: string): void {
     }
 
     let executableName = execSync(`where.exe /r "%ProgramFiles%" "${start}"`, { encoding: 'utf-8', timeout: 3000})
-        .toString('utf-8')
         .trim()
         .split('\n', 2)[0];
     spawn(executableName, [param, url]);
 }
 
-const webContents = electron.remote.getCurrentWebContents();
 webContents.on('context-menu', (_, props) => {
     const hasText = props.selectionText.trim().length > 0;
     const can = (type: string) => (<Electron.EditFlags & {[key: string]: boolean}>props.editFlags)[`can${type}`] && hasText;
@@ -159,7 +149,7 @@ webContents.on('context-menu', (_, props) => {
             click: () => electron.clipboard.writeText(props.selectionText)
         });
     if(props.misspelledWord !== '') {
-        const corrections = spellchecker.getCorrectionsForMisspelling(props.misspelledWord);
+        const corrections = props.dictionarySuggestions;
         menuTemplate.unshift({
             label: l('spellchecker.add'),
             click: () => electron.ipcRenderer.send('dictionary-add', props.misspelledWord)
@@ -176,21 +166,14 @@ webContents.on('context-menu', (_, props) => {
             click: () => electron.ipcRenderer.send('dictionary-remove', props.selectionText)
         }, {type: 'separator'});
 
-    if(menuTemplate.length > 0) electron.remote.Menu.buildFromTemplate(menuTemplate).popup({});
+    if(menuTemplate.length > 0) remote.Menu.buildFromTemplate(menuTemplate).popup({});
 });
-
-let dictDir = path.join(electron.remote.app.getPath('userData'), 'spellchecker');
-if(process.platform === 'win32') //get the path in DOS (8-character) format as special characters cause problems otherwise
-    exec(`for /d %I in ("${dictDir}") do @echo %~sI`, (_, stdout) => dictDir = stdout.trim());
-electron.webFrame.setSpellCheckProvider('', {spellCheck: (words, callback) => callback(words.filter((x) => spellchecker.isMisspelled(x)))});
 
 function onSettings(s: GeneralSettings): void {
     settings = s;
-    spellchecker.setDictionary(s.spellcheckLang, dictDir);
-    for(const word of s.customDictionary) spellchecker.add(word);
 }
 
-electron.ipcRenderer.on('settings', (_: Event, s: GeneralSettings) => onSettings(s));
+electron.ipcRenderer.on('settings', (_event: Electron.IpcRendererEvent, s: GeneralSettings) => onSettings(s));
 
 const params = <{[key: string]: string | undefined}>qs.parse(window.location.search.substr(1));
 let settings = <GeneralSettings>JSON.parse(params['settings']!);
@@ -205,7 +188,7 @@ if(params['import'] !== undefined)
     }
 onSettings(settings);
 
-const connection = new Connection(`F-Chat 3.0 (${process.platform})`, electron.remote.app.getVersion(), Socket);
+const connection = new Connection(`F-Chat 3.0 (${process.platform})`, remote.app.getVersion(), Socket);
 initCore(connection, Logs, SettingsStore, Notifications);
 
 //tslint:disable-next-line:no-unused-expression

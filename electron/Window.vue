@@ -38,6 +38,7 @@
 
     import {Component, Hook} from '@f-list/vue-ts';
     import * as electron from 'electron';
+    import * as remote from '@electron/remote';
     import * as fs from 'fs';
     import * as path from 'path';
     import * as url from 'url';
@@ -45,7 +46,7 @@
     import l from '../chat/localize';
     import {GeneralSettings} from './common';
 
-    const browserWindow = electron.remote.getCurrentWindow();
+    const browserWindow = remote.getCurrentWindow();
 
     function getWindowBounds(): Electron.Rectangle {
         const bounds = browserWindow.getContentBounds();
@@ -85,21 +86,21 @@
         @Hook('mounted')
         async mounted(): Promise<void> {
             await this.addTab();
-            electron.ipcRenderer.on('settings', (_: Event, settings: GeneralSettings) => this.settings = settings);
-            electron.ipcRenderer.on('allow-new-tabs', (_: Event, allow: boolean) => this.canOpenTab = allow);
+            electron.ipcRenderer.on('settings', (_event: Electron.IpcRendererEvent, settings: GeneralSettings) => this.settings = settings);
+            electron.ipcRenderer.on('allow-new-tabs', (_event: Electron.IpcRendererEvent, allow: boolean) => this.canOpenTab = allow);
             electron.ipcRenderer.on('open-tab', () => this.addTab());
-            electron.ipcRenderer.on('update-available', (_: Event, available: boolean) => this.hasUpdate = available);
+            electron.ipcRenderer.on('update-available', (_event: Electron.IpcRendererEvent, available: boolean) => this.hasUpdate = available);
             electron.ipcRenderer.on('fix-logs', () => this.activeTab!.view.webContents.send('fix-logs'));
             electron.ipcRenderer.on('quit', () => this.destroyAllTabs());
-            electron.ipcRenderer.on('connect', (_: Event, id: number, name: string) => {
+            electron.ipcRenderer.on('connect', (_event: Electron.IpcRendererEvent, id: number, name: string) => {
                 const tab = this.tabMap[id];
                 tab.user = name;
                 tab.tray.setToolTip(`${l('title')} - ${tab.user}`);
                 const menu = this.createTrayMenu(tab);
                 menu.unshift({label: tab.user, enabled: false}, {type: 'separator'});
-                tab.tray.setContextMenu(electron.remote.Menu.buildFromTemplate(menu));
+                tab.tray.setContextMenu(remote.Menu.buildFromTemplate(menu));
             });
-            electron.ipcRenderer.on('disconnect', (_: Event, id: number) => {
+            electron.ipcRenderer.on('disconnect', (_event: Electron.IpcRendererEvent, id: number) => {
                 const tab = this.tabMap[id];
                 if(tab.hasNew) {
                     tab.hasNew = false;
@@ -107,20 +108,20 @@
                 }
                 tab.user = undefined;
                 tab.tray.setToolTip(l('title'));
-                tab.tray.setContextMenu(electron.remote.Menu.buildFromTemplate(this.createTrayMenu(tab)));
+                tab.tray.setContextMenu(remote.Menu.buildFromTemplate(this.createTrayMenu(tab)));
             });
-            electron.ipcRenderer.on('has-new', (_: Event, id: number, hasNew: boolean) => {
+            electron.ipcRenderer.on('has-new', (_event: Electron.IpcRendererEvent, id: number, hasNew: boolean) => {
                 const tab = this.tabMap[id];
                 tab.hasNew = hasNew;
                 electron.ipcRenderer.send('has-new', this.tabs.reduce((cur, t) => cur || t.hasNew, false));
             });
             browserWindow.on('maximize', () => this.isMaximized = true);
             browserWindow.on('unmaximize', () => this.isMaximized = false);
-            electron.ipcRenderer.on('switch-tab', (_: Event) => {
+            electron.ipcRenderer.on('switch-tab', (_event: Electron.IpcRendererEvent) => {
                 const index = this.tabs.indexOf(this.activeTab!);
                 this.show(this.tabs[index + 1 === this.tabs.length ? 0 : index + 1]);
             });
-            electron.ipcRenderer.on('show-tab', (_: Event, id: number) => {
+            electron.ipcRenderer.on('show-tab', (_event: Electron.IpcRendererEvent, id: number) => {
                 this.show(this.tabMap[id]);
             });
             document.addEventListener('click', () => this.activeTab!.view.webContents.focus());
@@ -189,14 +190,24 @@
 
         async addTab(): Promise<void> {
             if(this.lockTab) return;
-            const tray = new electron.remote.Tray(trayIcon);
+            const tray = new remote.Tray(trayIcon);
             tray.setToolTip(l('title'));
             tray.on('click', (_) => this.trayClicked(tab));
-            const view = new electron.remote.BrowserView({webPreferences: {nodeIntegration: true}});
+            const view = new remote.BrowserView({
+                webPreferences: {
+                    webviewTag: true,
+                    nodeIntegration: true,
+                    nodeIntegrationInWorker: true,
+                    spellcheck: true,
+                    contextIsolation: false
+                }
+            });
+            // tslint:disable-next-line:no-require-imports no-submodule-imports
+            require('@electron/remote/main').enable(view.webContents);
             view.setAutoResize({width: true, height: true});
             electron.ipcRenderer.send('tab-added', view.webContents.id);
             const tab = {active: false, view, user: undefined, hasNew: false, tray};
-            tray.setContextMenu(electron.remote.Menu.buildFromTemplate(this.createTrayMenu(tab)));
+            tray.setContextMenu(remote.Menu.buildFromTemplate(this.createTrayMenu(tab)));
             this.tabs.push(tab);
             this.tabMap[view.webContents.id] = tab;
             this.show(tab);
@@ -245,7 +256,7 @@
         }
 
         openMenu(): void {
-            electron.remote.Menu.getApplicationMenu()!.popup({});
+            remote.Menu.getApplicationMenu()!.popup({});
         }
     }
 </script>

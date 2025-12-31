@@ -34,15 +34,16 @@ import log from 'electron-log'; //tslint:disable-line:match-default-export-name
 import * as fs from 'fs';
 import * as path from 'path';
 import * as url from 'url';
+import * as remoteMain from '@electron/remote/main';
 import l from '../chat/localize';
 import {defaultHost, GeneralSettings} from './common';
-import {ensureDictionary, getAvailableDictionaries} from './dictionaries';
 import * as windowState from './window_state';
 import BrowserWindow = Electron.BrowserWindow;
 import MenuItem = Electron.MenuItem;
 
 // Module to control application life.
 const app = electron.app;
+remoteMain.initialize();
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -72,10 +73,23 @@ if(!settings.hwAcceleration) {
     app.disableHardwareAcceleration();
 }
 
-async function setDictionary(lang: string | undefined): Promise<void> {
-    if(lang !== undefined) await ensureDictionary(lang);
+function getSafeLanguages(lang: string | undefined, available: string[]): string[] {
+    if(lang === undefined) return [];
+    const normalized = lang.replace('_', '-');
+    if(available.indexOf(normalized) !== -1) return [normalized];
+    if(available.indexOf('en-GB') !== -1) return ['en-GB'];
+    return [];
+}
+
+function setDictionary(lang: string | undefined): void {
     settings.spellcheckLang = lang;
     setGeneralSettings(settings);
+    const available = electron.session.defaultSession.availableSpellCheckerLanguages;
+    const safeLanguages = getSafeLanguages(lang, available);
+    electron.session.defaultSession.setSpellCheckerLanguages(safeLanguages);
+    for(const w of electron.webContents.getAllWebContents()) {
+        w.session.setSpellCheckerLanguages(safeLanguages);
+    }
 }
 
 function setGeneralSettings(value: GeneralSettings): void {
@@ -85,45 +99,54 @@ function setGeneralSettings(value: GeneralSettings): void {
 }
 
 async function addSpellcheckerItems(menu: Electron.Menu): Promise<void> {
-    if(settings.spellcheckLang !== undefined) await ensureDictionary(settings.spellcheckLang);
-    const dictionaries = await getAvailableDictionaries();
-    const selected = settings.spellcheckLang;
+    const available = electron.session.defaultSession.availableSpellCheckerLanguages;
+    const safeLanguages = getSafeLanguages(settings.spellcheckLang, available);
     menu.append(new electron.MenuItem({
         type: 'radio',
         label: l('settings.spellcheck.disabled'),
-        click: async() => setDictionary(undefined)
+        checked: safeLanguages.length === 0,
+        click: () => setDictionary(undefined)
     }));
-    for(const lang of dictionaries)
+    for(const lang of available)
         menu.append(new electron.MenuItem({
             type: 'radio',
             label: lang,
-            checked: lang === selected,
-            click: async() => setDictionary(lang)
+            checked: safeLanguages.indexOf(lang) !== -1,
+            click: () => setDictionary(lang)
         }));
 }
 
 function setUpWebContents(webContents: Electron.WebContents): void {
-    const openLinkExternally = (e: Event, linkUrl: string) => {
-        e.preventDefault();
+    const handleLink = (linkUrl: string) => {
         const profileMatch = linkUrl.match(/^https?:\/\/(www\.)?f-list.net\/c\/([^/#]+)\/?#?/);
         if(profileMatch !== null && settings.profileViewer) webContents.send('open-profile', decodeURIComponent(profileMatch[2]));
         else return electron.shell.openExternal(linkUrl);
     };
 
-    webContents.on('will-navigate', openLinkExternally);
-    webContents.on('new-window', openLinkExternally);
+    webContents.on('will-navigate', (event, linkUrl) => {
+        event.preventDefault();
+        handleLink(linkUrl);
+    });
+    webContents.setWindowOpenHandler(({url: linkUrl}) => {
+        handleLink(linkUrl);
+        return {action: 'deny'};
+    });
 }
 
 function createWindow(): Electron.BrowserWindow | undefined {
     if(tabCount >= 3) return;
     const lastState = windowState.getSavedWindowState();
     const windowProperties: Electron.BrowserWindowConstructorOptions & {maximized: boolean} = {
-        ...lastState, center: lastState.x === undefined, show: false, webPreferences: {nodeIntegration: true}
+        ...lastState,
+        center: lastState.x === undefined,
+        show: false,
+        webPreferences: {nodeIntegration: true, contextIsolation: false, spellcheck: true}
     };
     if(process.platform === 'darwin') windowProperties.titleBarStyle = 'hiddenInset';
     else windowProperties.frame = false;
     const window = new electron.BrowserWindow(windowProperties);
     windows.push(window);
+    remoteMain.enable(window.webContents);
 
     window.loadURL(url.format({ //tslint:disable-line:no-floating-promises
         pathname: path.join(__dirname, 'window.html'),
@@ -157,6 +180,11 @@ function onReady(): void {
 
     app.setAppUserModelId('com.squirrel.fchat.F-Chat');
     app.on('open-file', createWindow);
+
+    const availableLanguages = electron.session.defaultSession.availableSpellCheckerLanguages;
+    electron.session.defaultSession.setSpellCheckerLanguages(
+        getSafeLanguages(settings.spellcheckLang, availableLanguages)
+    );
 
     if(settings.version !== app.getVersion()) {
         showPatchNotes();
@@ -205,15 +233,15 @@ function onReady(): void {
     const viewItem = {
         label: `&${l('action.view')}`,
         submenu: <Electron.MenuItemConstructorOptions[]>[
-            {role: 'resetzoom'},
-            {role: 'zoomin'},
-            {role: 'zoomout'},
+            {role: 'resetZoom'},
+            {role: 'zoomIn'},
+            {role: 'zoomOut'},
             {type: 'separator'},
             {role: 'togglefullscreen'}
         ]
     };
     if(process.env.NODE_ENV !== 'production')
-        viewItem.submenu.unshift({role: 'reload'}, {role: 'forcereload'}, {role: 'toggledevtools'}, {type: 'separator'});
+        viewItem.submenu.unshift({role: 'reload'}, {role: 'forceReload'}, {role: 'toggleDevTools'}, {type: 'separator'});
     const spellcheckerMenu = new electron.Menu();
     //tslint:disable-next-line:no-floating-promises
     addSpellcheckerItems(spellcheckerMenu);
@@ -229,30 +257,35 @@ function onReady(): void {
                 {label: l('action.newWindow'), click: createWindow, accelerator: 'CmdOrCtrl+n'},
                 {
                     label: l('action.newTab'),
-                    click: (_: Electron.MenuItem, w: Electron.BrowserWindow) => {
-                        if(tabCount < 3) w.webContents.send('open-tab');
+                    click: (_item, window) => {
+                        const target = window instanceof electron.BrowserWindow ? window : electron.BrowserWindow.getFocusedWindow();
+                        if(!target || tabCount >= 3) return;
+                        target.webContents.send('open-tab');
                     },
                     accelerator: 'CmdOrCtrl+t'
                 },
                 {
                     label: l('settings.logDir'),
-                    click: (_, window: BrowserWindow) => {
-                        const dir = electron.dialog.showOpenDialog(
-                            {defaultPath: settings.logDirectory, properties: ['openDirectory']});
-                        if(dir !== undefined) {
-                            if(dir[0].startsWith(path.dirname(app.getPath('exe'))))
-                                return electron.dialog.showErrorBox(l('settings.logDir'), l('settings.logDir.inAppDir'));
-                            const button = electron.dialog.showMessageBox(window, {
-                                message: l('settings.logDir.confirm', dir[0], settings.logDirectory),
-                                buttons: [l('confirmYes'), l('confirmNo')],
-                                cancelId: 1
-                            });
-                            if(button === 0) {
-                                for(const w of windows) w.webContents.send('quit');
-                                settings.logDirectory = dir[0];
-                                setGeneralSettings(settings);
-                                app.quit();
-                            }
+                    click: async(_item, window) => {
+                        if(!window) return;
+                        const result = await electron.dialog.showOpenDialog(window, {
+                            defaultPath: settings.logDirectory,
+                            properties: ['openDirectory']
+                        });
+                        if(result.canceled || result.filePaths.length === 0) return;
+                        const dir = result.filePaths[0];
+                        if(dir.startsWith(path.dirname(app.getPath('exe'))))
+                            return electron.dialog.showErrorBox(l('settings.logDir'), l('settings.logDir.inAppDir'));
+                        const {response} = await electron.dialog.showMessageBox(window, {
+                            message: l('settings.logDir.confirm', dir, settings.logDirectory),
+                            buttons: [l('confirmYes'), l('confirmNo')],
+                            cancelId: 1
+                        });
+                        if(response === 0) {
+                            for(const w of windows) w.webContents.send('quit');
+                            settings.logDirectory = dir;
+                            setGeneralSettings(settings);
+                            app.quit();
                         }
                     }
                 },
@@ -294,21 +327,26 @@ function onReady(): void {
                     }
                 }, {
                     label: l('fixLogs.action'),
-                    click: (_, window: BrowserWindow) => window.webContents.send('fix-logs')
+                    click: (_item, window) => {
+                        const target = window instanceof electron.BrowserWindow ? window : electron.BrowserWindow.getFocusedWindow();
+                        if(!target) return;
+                        target.webContents.send('fix-logs');
+                    }
                 },
                 {type: 'separator'},
                 {role: 'minimize'},
                 {
                     accelerator: process.platform === 'darwin' ? 'Cmd+Q' : undefined,
                     label: l('action.quit'),
-                    click(_: Electron.MenuItem, window: Electron.BrowserWindow): void {
+                    click: async(_item, window): Promise<void> => {
                         if(characters.length === 0) return app.quit();
-                        const button = electron.dialog.showMessageBox(window, {
+                        if(!window) return;
+                        const {response} = await electron.dialog.showMessageBox(window, {
                             message: l('chat.confirmLeave'),
                             buttons: [l('confirmYes'), l('confirmNo')],
                             cancelId: 1
                         });
-                        if(button === 0) {
+                        if(response === 0) {
                             for(const w of windows) w.webContents.send('quit');
                             app.quit();
                         }
@@ -324,7 +362,7 @@ function onReady(): void {
                 {role: 'cut'},
                 {role: 'copy'},
                 {role: 'paste'},
-                {role: 'selectall'}
+                {role: 'selectAll'}
             ]
         }, viewItem, {
             label: `&${l('help')}`,
@@ -353,9 +391,14 @@ function onReady(): void {
             ]
         }
     ]));
-    electron.ipcMain.on('tab-added', (_: Event, id: number) => {
+    electron.ipcMain.on('tab-added', (_event: Electron.IpcMainEvent, id: number) => {
         const webContents = electron.webContents.fromId(id);
-        setUpWebContents(webContents);
+        if(webContents !== undefined) {
+            setUpWebContents(webContents);
+            const available = electron.session.defaultSession.availableSpellCheckerLanguages;
+            webContents.session.setSpellCheckerLanguages(getSafeLanguages(settings.spellcheckLang, available));
+            remoteMain.enable(webContents);
+        }
         ++tabCount;
         if(tabCount === 3)
             for(const w of windows) w.webContents.send('allow-new-tabs', false);
@@ -364,35 +407,35 @@ function onReady(): void {
         --tabCount;
         for(const w of windows) w.webContents.send('allow-new-tabs', true);
     });
-    electron.ipcMain.on('save-login', (_: Event, account: string, host: string) => {
+    electron.ipcMain.on('save-login', (_event: Electron.IpcMainEvent, account: string, host: string) => {
         settings.account = account;
         settings.host = host;
         setGeneralSettings(settings);
     });
-    electron.ipcMain.on('connect', (e: Event & {sender: Electron.WebContents}, character: string) => {
-        if(characters.indexOf(character) !== -1) return e.returnValue = false;
+    electron.ipcMain.on('connect', (event: Electron.IpcMainEvent, character: string) => {
+        if(characters.indexOf(character) !== -1) return event.returnValue = false;
         characters.push(character);
-        e.returnValue = true;
+        event.returnValue = true;
     });
-    electron.ipcMain.on('dictionary-add', (_: Event, word: string) => {
-        if(settings.customDictionary.indexOf(word) !== -1) return;
-        settings.customDictionary.push(word);
-        setGeneralSettings(settings);
+    electron.ipcMain.on('dictionary-add', (_event: Electron.IpcMainEvent, word: string) => {
+        electron.session.defaultSession.addWordToSpellCheckerDictionary(word);
+        for(const w of electron.webContents.getAllWebContents()) {
+            w.session.addWordToSpellCheckerDictionary(word);
+        }
     });
-    electron.ipcMain.on('dictionary-remove', (_: Event, word: string) => {
-        settings.customDictionary.splice(settings.customDictionary.indexOf(word), 1);
-        setGeneralSettings(settings);
+    electron.ipcMain.on('dictionary-remove', (_event: Electron.IpcMainEvent, _word: string) => {
+        // Electron does not support removing words from the spellchecker dictionary.
     });
-    electron.ipcMain.on('disconnect', (_: Event, character: string) => {
+    electron.ipcMain.on('disconnect', (_event: Electron.IpcMainEvent, character: string) => {
         const index = characters.indexOf(character);
         if(index !== -1) characters.splice(index, 1);
     });
     const emptyBadge = electron.nativeImage.createEmpty();
     //tslint:disable-next-line:no-require-imports
     const badge = electron.nativeImage.createFromPath(path.join(__dirname, <string>require('./build/badge.png')));
-    electron.ipcMain.on('has-new', (e: Event & {sender: Electron.WebContents}, hasNew: boolean) => {
-        if(process.platform === 'darwin') app.dock.setBadge(hasNew ? '!' : '');
-        const window = electron.BrowserWindow.fromWebContents(e.sender) as BrowserWindow | undefined;
+    electron.ipcMain.on('has-new', (event: Electron.IpcMainEvent, hasNew: boolean) => {
+        if(process.platform === 'darwin' && app.dock) app.dock.setBadge(hasNew ? '!' : '');
+        const window = electron.BrowserWindow.fromWebContents(event.sender) as BrowserWindow | undefined;
         if(window !== undefined) window.setOverlayIcon(hasNew ? badge : emptyBadge, hasNew ? 'New messages' : '');
     });
     createWindow();
