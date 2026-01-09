@@ -80,6 +80,9 @@ const config = {
         new NodePolyfillPlugin()
     ],
     resolve: {
+        alias: {
+            vue$: path.resolve(__dirname, 'vue-shim.js')
+        },
         fallback: {
             fs: false,
             tls: false,
