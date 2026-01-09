@@ -4,6 +4,8 @@
     "module": "commonjs",
     "sourceMap": true,
     "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "noEmitHelpers": true,
     "importHelpers": true,
     "forceConsistentCasingInFileNames": true,

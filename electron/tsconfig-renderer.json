@@ -4,6 +4,8 @@
     "module": "commonjs",
     "sourceMap": true,
     "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "allowJs": true,
     "noEmitHelpers": true,
     "importHelpers": true,
