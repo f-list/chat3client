@@ -1,19 +1,19 @@
-# Chat 3 Client
+# Chat 3 Client <!-- omit in toc -->
 Open-source components of F-List and F-Chat 3.0. This repo builds the client as an Electron desktop app, a mobile bundle, or a web bundle.
 
-- [Chat 3 Client](#chat-3-client)
-  - [Maintainers](#maintainers)
-  - [Repo layout](#repo-layout)
-  - [Prerequisites](#prerequisites)
-  - [Install](#install)
-  - [Build targets](#build-targets)
-    - [Electron](#electron)
-      - [Packaging (electron-builder)](#packaging-electron-builder)
-      - [Cross-platform packaging script](#cross-platform-packaging-script)
-    - [Mobile](#mobile)
-    - [Webchat](#webchat)
-    - [Custom themes](#custom-themes)
-  - [Dependencies](#dependencies)
+- [Maintainers](#maintainers)
+- [Repo layout](#repo-layout)
+- [Prerequisites](#prerequisites)
+- [Install](#install)
+- [Build targets](#build-targets)
+  - [Electron](#electron)
+    - [Packaging (electron-builder)](#packaging-electron-builder)
+    - [Cross-platform packaging script](#cross-platform-packaging-script)
+  - [Mobile](#mobile)
+  - [Webchat](#webchat)
+  - [Custom themes](#custom-themes)
+- [Dependencies](#dependencies)
+  - [Contributing](#contributing)
 
 
 ## Maintainers
@@ -79,3 +79,6 @@ Dependency upgrades should be done deliberately and verified.
 - Lockfile: `pnpm-lock.yaml` (created on first `pnpm install`)
 - Updates: `pnpm update`
 - Audit outdated: `pnpm outdated`
+
+### Contributing
+Read [CONTRIBUTING.md](./CONTRIBUTING.md).
