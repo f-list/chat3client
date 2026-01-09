@@ -13,7 +13,7 @@ Open-source components of F-List and F-Chat 3.0. This repo builds the client as 
   - [Webchat](#webchat)
   - [Custom themes](#custom-themes)
 - [Dependencies](#dependencies)
-  - [Contributing](#contributing)
+- [Contributing](#contributing)
 
 
 ## Maintainers
@@ -80,5 +80,5 @@ Dependency upgrades should be done deliberately and verified.
 - Updates: `pnpm update`
 - Audit outdated: `pnpm outdated`
 
-### Contributing
+## Contributing
 Read [CONTRIBUTING.md](./CONTRIBUTING.md).
