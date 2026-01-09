@@ -17,14 +17,19 @@ class BackgroundService : Service() {
 
 	override fun onCreate() {
 		super.onCreate()
-		val notification = Notification.Builder(this).setContentTitle(getString(R.string.app_name))
-				.setContentIntent(PendingIntent.getActivity(this, 1, Intent(this, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT))
-				.setSmallIcon(R.drawable.ic_notification).setAutoCancel(true).setPriority(Notification.PRIORITY_LOW)
 		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 			val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager;
 			manager.createNotificationChannel(NotificationChannel("background", getString(R.string.channel_background), NotificationManager.IMPORTANCE_LOW));
-			notification.setChannelId("background");
 		}
+		val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+		val notification = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+			Notification.Builder(this, "background")
+		} else {
+			Notification.Builder(this)
+		}
+			.setContentTitle(getString(R.string.app_name))
+			.setContentIntent(PendingIntent.getActivity(this, 1, Intent(this, MainActivity::class.java), pendingFlags))
+			.setSmallIcon(R.drawable.ic_notification).setAutoCancel(true).setPriority(Notification.PRIORITY_LOW)
 		startForeground(1, notification.build())
 	}
 
