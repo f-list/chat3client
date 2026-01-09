@@ -35,8 +35,16 @@ const config = {
             {test: /\.(woff2?)$/, loader: 'file-loader'},
             {test: /\.ttf(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader'},
             {test: /\.svg(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader'},
-            {test: /\.(wav|mp3|ogg)$/, loader: 'file-loader?name=sounds/[name].[ext]'},
-            {test: /\.(png|html)$/, loader: 'file-loader?name=[name].[ext]'},
+            {
+                test: /\.(wav|mp3|ogg)$/,
+                loader: 'file-loader',
+                options: {name: 'sounds/[name].[ext]'}
+            },
+            {
+                test: /\.(png|html)$/,
+                loader: 'file-loader',
+                options: {name: '[name].[ext]'}
+            },
             {
                 test: /\.scss$/,
                 use: [
@@ -73,7 +81,7 @@ module.exports = function(mode) {
         process.env.NODE_ENV = 'production';
         config.devtool = 'source-map';
     } else {
-        config.devtool = 'none';
+        config.devtool = false;
     }
     return config;
 };
