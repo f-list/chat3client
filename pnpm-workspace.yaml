@@ -1,0 +1,9 @@
+packages:
+  - electron
+  - mobile
+  - webchat
+  - scss
+
+onlyBuiltDependencies:
+  - electron
+  - electron-winstaller

@@ -11,7 +11,7 @@ const DOCKER_IMAGES = {
 };
 
 const ENV_VAR_PATTERNS =
-  /^(DEBUG|NODE_|ELECTRON_|YARN_|NPM_|CI|TRAVIS|GITHUB_)/i;
+  /^(DEBUG|NODE_|ELECTRON_|PNPM_|NPM_|CI|TRAVIS|GITHUB_)/i;
 
 const BASE_ENV_VARS = {
   ELECTRON_CACHE: '/root/.cache/electron',
@@ -93,7 +93,7 @@ function generateVolumeMappings(repoRoot) {
 
 function generateBuildCommand(targetKey, formats, archFlags, ownershipFix) {
   const ensureNodeModules =
-    'if [ ! -d /project/electron/node_modules ] || [ ! -e /project/electron/node_modules/.bin/electron-builder ]; then cd /project/electron && yarn install --production=false; fi';
+    'if [ ! -d /project/electron/node_modules ] || [ ! -e /project/electron/node_modules/.bin/electron-builder ]; then cd /project/electron && pnpm install; fi';
   const baseCommand = `cd /project/electron && ${ensureNodeModules} && ./node_modules/.bin/electron-builder --${targetKey} ${formats} ${archFlags}${ownershipFix}`;
 
   if (targetKey === 'windows') {

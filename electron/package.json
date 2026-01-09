@@ -91,8 +91,30 @@
     "build:linux": "node build/build.mjs --os linux --format deb AppImage",
     "build:mac": "node build/build.mjs --os macos --format dmg zip"
   },
+  "dependencies": {
+    "@electron/remote": "^2.1.2",
+    "@f-list/vue-ts": "^1.0.3",
+    "@fortawesome/fontawesome-free": "^5.9.0",
+    "axios": "^0.30.0",
+    "bootstrap": "^4.3.1",
+    "date-fns": "^1.30.1",
+    "electron-log": "^4.4.8",
+    "lodash": "^4.17.11",
+    "qs": "^6.6.0",
+    "raven-js": "^3.27.2",
+    "sortablejs": "~1.9.0",
+    "tslib": "^2.8.1",
+    "vue": "^2.6.8"
+  },
   "devDependencies": {
+    "@types/lodash": "^4.14.134",
+    "@types/node": "16.18.32",
+    "@types/sortablejs": "^1.7.2",
+    "commander": "^14.0.0",
     "electron": "39.2.7",
     "electron-builder": "^26.3.2"
+  },
+  "optionalDependencies": {
+    "electron-squirrel-startup": "^1.0.0"
   }
 }
