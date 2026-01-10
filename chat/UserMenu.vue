@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div id="userMenu" class="list-group" v-show="showContextMenu" :style="position" v-if="character"
+        <div id="userMenu" class="list-group" v-if="character && showContextMenu" :style="position"
             style="position:fixed;padding:10px 10px 5px;display:block;width:220px;z-index:1100" ref="menu">
             <div style="min-height: 65px;padding:5px;overflow:auto" class="list-group-item" @click.stop>
                 <img :src="characterImage" style="width:60px;height:60px;margin-right:5px;float:left" v-if="showAvatars"/>
@@ -194,6 +194,7 @@
             this.position = {left: `${touch.clientX}px`, top: `${touch.clientY}px`};
             this.$nextTick(() => {
                 const menu = <HTMLElement>this.$refs['menu'];
+                if(this.character !== character) return;
                 this.characterImage = characterImage(character.name);
                 if((parseInt(this.position.left, 10) + menu.offsetWidth) > window.innerWidth)
                     this.position.left = `${window.innerWidth - menu.offsetWidth - 1}px`;
@@ -211,6 +212,5 @@
 
     #userMenu .list-group-item-action {
         border-top-width: 0;
-        z-index: -1;
     }
 </style>
