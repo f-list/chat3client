@@ -10,7 +10,7 @@ export default class Notifications extends BaseNotifications {
             await super.notify(conversation, title, body, icon, sound);
         } catch {
             //tslint:disable-next-line:no-require-imports no-submodule-imports
-            await navigator.serviceWorker.register(<string>require('file-loader!./sw.js'));
+            await navigator.serviceWorker.register(<string>require('./sw.js'));
             const reg = await navigator.serviceWorker.ready;
             await reg.showNotification(title, this.getOptions(conversation, body, icon));
             navigator.serviceWorker.onmessage = (e) => {

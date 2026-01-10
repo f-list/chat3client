@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
-const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const VueLoaderPlugin = require('vue-loader/lib/plugin');
 const vueTransformer = require('../tools/vue-ts-transform');
 const CopyPlugin = require('copy-webpack-plugin');
@@ -28,8 +28,17 @@ const mainConfig = {
                     transpileOnly: true
                 }
             },
-            {test: path.join(__dirname, 'package.json'), loader: 'file-loader', options: {name: 'package.json', esModule: false}, type: 'javascript/auto'},
-            {test: /\.(png|html)$/, loader: 'file-loader', options: {name: '[name].[ext]', esModule: false}}
+            {
+                test: /package\.json$/,
+                include: path.join(__dirname, 'package.json'),
+                type: 'asset/resource',
+                generator: {filename: 'package.json'}
+            },
+            {
+                test: /\.(png|html)(\?.*)?$/,
+                type: 'asset/resource',
+                generator: {filename: '[name][ext]'}
+            }
         ]
     },
     node: {
@@ -83,12 +92,20 @@ const mainConfig = {
                     getCustomTransformers: () => ({before: [vueTransformer]})
                 }
             },
-            {test: /\.eot(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader', options: {esModule: false}},
-            {test: /\.(woff2?)$/, loader: 'file-loader', options: {esModule: false}},
-            {test: /\.ttf(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader', options: {esModule: false}},
-            {test: /\.svg(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader', options: {esModule: false}},
-            {test: /\.(wav|mp3|ogg)$/, loader: 'file-loader', options: {name: 'sounds/[name].[ext]', esModule: false}},
-            {test: /\.(png|html)$/, loader: 'file-loader', options: {name: '[name].[ext]', esModule: false}},
+            {
+                test: /\.(eot|ttf|woff2?|svg)(\?.*)?$/,
+                type: 'asset/resource'
+            },
+            {
+                test: /\.(wav|mp3|ogg)(\?.*)?$/,
+                type: 'asset/resource',
+                generator: {filename: 'sounds/[name][ext]'}
+            },
+            {
+                test: /\.(png|html)(\?.*)?$/,
+                type: 'asset/resource',
+                generator: {filename: '[name][ext]'}
+            },
             {
                 test: /\.vue\.scss/,
                 use: [
@@ -225,7 +242,10 @@ module.exports = function(mode) {
     if(mode === 'production') {
         process.env.NODE_ENV = 'production';
         mainConfig.devtool = rendererConfig.devtool = false;
-        rendererConfig.plugins.push(new OptimizeCssAssetsPlugin());
+        rendererConfig.optimization = {
+            ...rendererConfig.optimization,
+            minimizer: ['...', new CssMinimizerPlugin()]
+        };
     } else {
         mainConfig.devtool = rendererConfig.devtool = 'inline-source-map';
     }

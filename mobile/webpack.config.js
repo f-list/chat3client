@@ -34,19 +34,19 @@ const config = {
                     }
                 }
             },
-            {test: /\.eot(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader'},
-            {test: /\.(woff2?)$/, loader: 'file-loader'},
-            {test: /\.ttf(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader'},
-            {test: /\.svg(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader'},
             {
-                test: /\.(wav|mp3|ogg)$/,
-                loader: 'file-loader',
-                options: {name: 'sounds/[name].[ext]'}
+                test: /\.(wav|mp3|ogg)(\?.*)?$/,
+                type: 'asset/resource',
+                generator: {filename: 'sounds/[name][ext]'}
             },
             {
-                test: /\.(png|html)$/,
-                loader: 'file-loader',
-                options: {name: '[name].[ext]'}
+                test: /\.(png|html)(\?.*)?$/,
+                type: 'asset/resource',
+                generator: {filename: '[name][ext]'}
+            },
+            {
+                test: /\.(eot|ttf|woff2?|svg)(\?.*)?$/,
+                type: 'asset/resource'
             },
             {
                 test: /(?<!\.vue)\.scss/,
