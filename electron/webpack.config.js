@@ -61,8 +61,8 @@ const mainConfig = {
     }
 }, rendererConfig = {
     entry: {
-        chat: [path.join(__dirname, 'chat.ts'), path.join(__dirname, 'index.html')],
-        window: [path.join(__dirname, 'window.ts'), path.join(__dirname, 'window.html'), path.join(__dirname, 'build', 'tray@2x.png')]
+        chat: path.join(__dirname, 'chat.ts'),
+        window: path.join(__dirname, 'window.ts')
     },
     output: {
         path: __dirname + '/app',
@@ -200,6 +200,18 @@ const mainConfig = {
                     to: path.join('sound-themes'),
                     context: path.resolve(__dirname, '..', 'chat', 'sound-themes'),
                     noErrorOnMissing: true
+                },
+                {
+                    from: path.join(__dirname, 'index.html'),
+                    to: 'index.html'
+                },
+                {
+                    from: path.join(__dirname, 'window.html'),
+                    to: 'window.html'
+                },
+                {
+                    from: path.join(__dirname, 'build', 'tray@2x.png'),
+                    to: 'tray@2x.png'
                 },
                 {
                     from: path.join(__dirname, 'package.json'),
