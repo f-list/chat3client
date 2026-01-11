@@ -20,12 +20,12 @@ export default class Connection implements Interfaces.Connection {
     private errorHandlers: ((error: Error) => void)[] = [];
     private ticket = '';
     private cleanClose = false;
-    private reconnectTimer: NodeJS.Timer | undefined;
+    private reconnectTimer: NodeJS.Timeout | undefined;
     private account = '';
     private ticketProvider?: Interfaces.TicketProvider;
     private reconnectDelay = 0;
     private isReconnect = false;
-    private pinTimeout?: NodeJS.Timer;
+    private pinTimeout?: NodeJS.Timeout;
 
     constructor(private readonly clientName: string, private readonly version: string,
                 private readonly socketProvider: new() => WebSocketConnection) {

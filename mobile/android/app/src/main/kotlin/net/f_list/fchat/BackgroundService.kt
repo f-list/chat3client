@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 
@@ -17,15 +18,25 @@ class BackgroundService : Service() {
 
 	override fun onCreate() {
 		super.onCreate()
-		val notification = Notification.Builder(this).setContentTitle(getString(R.string.app_name))
-				.setContentIntent(PendingIntent.getActivity(this, 1, Intent(this, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT))
-				.setSmallIcon(R.drawable.ic_notification).setAutoCancel(true).setPriority(Notification.PRIORITY_LOW)
 		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 			val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager;
 			manager.createNotificationChannel(NotificationChannel("background", getString(R.string.channel_background), NotificationManager.IMPORTANCE_LOW));
-			notification.setChannelId("background");
 		}
-		startForeground(1, notification.build())
+		val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+		val notification = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+			Notification.Builder(this, "background")
+		} else {
+			Notification.Builder(this)
+		}
+			.setContentTitle(getString(R.string.app_name))
+			.setContentIntent(PendingIntent.getActivity(this, 1, Intent(this, MainActivity::class.java), pendingFlags))
+			.setSmallIcon(R.drawable.ic_notification).setAutoCancel(true).setPriority(Notification.PRIORITY_LOW)
+		val builtNotification = notification.build()
+		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+			startForeground(1, builtNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+		} else {
+			startForeground(1, builtNotification)
+		}
 	}
 
 	override fun onDestroy() {

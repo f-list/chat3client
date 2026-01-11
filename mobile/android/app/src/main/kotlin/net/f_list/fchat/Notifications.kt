@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.pm.PackageManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -16,9 +17,13 @@ import android.os.Build
 import android.os.Vibrator
 import android.provider.Settings
 import android.webkit.JavascriptInterface
+import android.Manifest
+import android.app.Activity
 import java.net.URL
 
 class Notifications(private val ctx: Context) {
+	private val notificationRequestCode = 1001
+
 	init {
 		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 			val manager = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager;
@@ -26,8 +31,16 @@ class Notifications(private val ctx: Context) {
 		}
 	}
 
+	private fun ensureNotificationPermission(): Boolean {
+		if(Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+		if(ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return true
+		if(ctx is Activity) ctx.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), notificationRequestCode)
+		return false
+	}
+
 	@JavascriptInterface
 	fun notify(notify: Boolean, title: String, text: String, icon: String, sound: String?, data: String?): Int {
+		if(!ensureNotificationPermission()) return 0
 		if(sound != null) {
 			val player = MediaPlayer()
 			val asset = ctx.assets.openFd("www/sounds/$sound.mp3")
@@ -49,9 +62,13 @@ class Notifications(private val ctx: Context) {
 		val intent = Intent(ctx, MainActivity::class.java)
 		intent.action = "notification"
 		intent.putExtra("data", data)
-		val notification = Notification.Builder(ctx).setContentTitle(title).setContentText(text).setSmallIcon(R.drawable.ic_notification).setAutoCancel(true)
-				.setContentIntent(PendingIntent.getActivity(ctx, 1, intent, PendingIntent.FLAG_UPDATE_CURRENT)).setDefaults(Notification.DEFAULT_VIBRATE or Notification.DEFAULT_LIGHTS)
-		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) notification.setChannelId("messages")
+		val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+		val notification = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+			Notification.Builder(ctx, "messages")
+		} else {
+			Notification.Builder(ctx)
+		}.setContentTitle(title).setContentText(text).setSmallIcon(R.drawable.ic_notification).setAutoCancel(true)
+				.setContentIntent(PendingIntent.getActivity(ctx, 1, intent, pendingFlags)).setDefaults(Notification.DEFAULT_VIBRATE or Notification.DEFAULT_LIGHTS)
 		object : AsyncTask<String, Void, Bitmap>() {
 			override fun doInBackground(vararg args: String): Bitmap? {
 				return try {
@@ -72,6 +89,6 @@ class Notifications(private val ctx: Context) {
 
 	@JavascriptInterface
 	fun requestPermission() {
-
+		ensureNotificationPermission()
 	}
 }

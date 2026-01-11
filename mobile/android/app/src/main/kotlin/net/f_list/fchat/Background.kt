@@ -2,6 +2,7 @@ package net.f_list.fchat
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.PowerManager
 import android.webkit.JavascriptInterface
 
@@ -14,7 +15,8 @@ class Background(private val ctx: Context) {
 	fun start() {
 		wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "fchat")
 		wakeLock!!.acquire()
-		ctx.startService(serviceIntent)
+		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(serviceIntent)
+		else ctx.startService(serviceIntent)
 	}
 
 	@JavascriptInterface

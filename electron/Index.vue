@@ -77,12 +77,12 @@
     import {Component, Hook} from '@f-list/vue-ts';
     import Axios from 'axios';
     import * as electron from 'electron';
+    import * as remote from '@electron/remote';
     import log from 'electron-log'; //tslint:disable-line:match-default-export-name
     import * as fs from 'fs';
     import * as path from 'path';
     import * as qs from 'querystring';
-    import * as Raven from 'raven-js';
-    import {promisify} from 'util';
+    import Raven from 'raven-js';
     import Vue from 'vue';
     import Chat from '../chat/Chat.vue';
     import {getKey, Settings} from '../chat/common';
@@ -94,24 +94,17 @@
     import {SimpleCharacter} from '../interfaces';
     import {Keys} from '../keys';
     import CharacterPage from '../site/character_page/character_page.vue';
-    import {defaultHost, GeneralSettings, nativeRequire} from './common';
+    import {defaultHost, GeneralSettings} from './common';
     import {fixLogs} from './filesystem';
     import * as SlimcatImporter from './importer';
+    import {SecureStore} from './secure-store';
 
-    const webContents = electron.remote.getCurrentWebContents();
-    const parent = electron.remote.getCurrentWindow().webContents;
+    const webContents = remote.getCurrentWebContents();
+    // tslint:disable-next-line:no-require-imports no-submodule-imports
+    require('@electron/remote/main').enable(webContents);
+    const parent = remote.getCurrentWindow().webContents;
 
-    log.info('About to load keytar');
-    /*tslint:disable:no-any*///because this is hacky
-    const keyStore = nativeRequire<{
-        getPassword(account: string): Promise<string>
-        setPassword(account: string, password: string): Promise<void>
-        deletePassword(account: string): Promise<void>
-        [key: string]: (...args: any[]) => Promise<any>
-    }>('keytar/build/Release/keytar.node');
-    for(const key in keyStore) keyStore[key] = promisify(<(...args: any[]) => any>keyStore[key].bind(keyStore, 'fchat'));
-    //tslint:enable
-    log.info('Loaded keytar.');
+    const keyStore = new SecureStore('fchat-accounts', remote);
 
     @Component({
         components: {chat: Chat, modal: Modal, characterPage: CharacterPage, logs: Logs}
@@ -135,14 +128,14 @@
         @Hook('created')
         created(): void {
             if(this.settings.account.length > 0) this.saveLogin = true;
-            keyStore.getPassword(this.settings.account)
-                .then((value: string) => this.password = value, (err: Error) => this.error = err.message);
+            keyStore.getPassword('f-list.net', this.settings.account)
+                .then((value: string | null) => this.password = value || '', (err: Error) => this.error = err.message);
 
             Vue.set(core.state, 'generalSettings', this.settings);
 
             electron.ipcRenderer.on('settings',
-                (_: Event, settings: GeneralSettings) => core.state.generalSettings = this.settings = settings);
-            electron.ipcRenderer.on('open-profile', (_: Event, name: string) => {
+                (_event: Electron.IpcRendererEvent, settings: GeneralSettings) => core.state.generalSettings = this.settings = settings);
+            electron.ipcRenderer.on('open-profile', (_event: Electron.IpcRendererEvent, name: string) => {
                 const profileViewer = <Modal>this.$refs['profileViewer'];
                 this.profileName = name;
                 profileViewer.show();
@@ -162,7 +155,7 @@
             if(this.loggingIn) return;
             this.loggingIn = true;
             try {
-                if(!this.saveLogin) await keyStore.deletePassword(this.settings.account);
+                if(!this.saveLogin) await keyStore.deletePassword('f-list.net', this.settings.account);
                 const data = <{ticket?: string, error: string, characters: {[key: string]: number}, default_character: number}>
                     (await Axios.post('https://www.f-list.net/json/getApiTicket.php', qs.stringify({
                         account: this.settings.account, password: this.password, no_friends: true, no_bookmarks: true,
@@ -174,7 +167,7 @@
                 }
                 if(this.saveLogin) {
                     electron.ipcRenderer.send('save-login', this.settings.account, this.settings.host);
-                    await keyStore.setPassword(this.settings.account, this.password);
+                    await keyStore.setPassword('f-list.net', this.settings.account, this.password);
                 }
                 Socket.host = this.settings.host;
 
@@ -251,7 +244,7 @@
         }
 
         async openProfileInBrowser(): Promise<void> {
-            return electron.remote.shell.openExternal(`https://www.f-list.net/c/${this.profileName}`);
+            return remote.shell.openExternal(`https://www.f-list.net/c/${this.profileName}`);
         }
 
         get styling(): string {

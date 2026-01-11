@@ -2,12 +2,12 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
 android {
-	compileSdkVersion 28
-	buildToolsVersion "29.0.3"
+	namespace "net.f_list.fchat"
+	compileSdk 34
 	defaultConfig {
 		applicationId "net.f_list.fchat"
-		minSdkVersion 21
-		targetSdkVersion 27
+		minSdk 21
+		targetSdk 34
 		versionCode 28
 		versionName "3.0.16"
 	}
@@ -17,10 +17,20 @@ android {
 			proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
 		}
 	}
+	buildFeatures {
+		buildConfig = true
+	}
+	compileOptions {
+		sourceCompatibility JavaVersion.VERSION_1_8
+		targetCompatibility JavaVersion.VERSION_1_8
+	}
+	kotlinOptions {
+		jvmTarget = "1.8"
+	}
 }
 
 dependencies {
-	implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+	implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 }
 repositories {
 	mavenCentral()

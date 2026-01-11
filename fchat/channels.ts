@@ -7,7 +7,7 @@ interface SortableMember extends Interfaces.Member {
 }
 
 export function queuedJoin(this: void, channels: string[]): void {
-    const timer: NodeJS.Timer = setInterval(() => {
+    const timer: NodeJS.Timeout = setInterval(() => {
         const channel = channels.shift();
         if(channel === undefined) return clearInterval(timer);
         state.join(channel);
