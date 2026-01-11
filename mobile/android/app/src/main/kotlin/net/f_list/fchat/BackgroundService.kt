@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 
@@ -30,7 +31,12 @@ class BackgroundService : Service() {
 			.setContentTitle(getString(R.string.app_name))
 			.setContentIntent(PendingIntent.getActivity(this, 1, Intent(this, MainActivity::class.java), pendingFlags))
 			.setSmallIcon(R.drawable.ic_notification).setAutoCancel(true).setPriority(Notification.PRIORITY_LOW)
-		startForeground(1, notification.build())
+		val builtNotification = notification.build()
+		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+			startForeground(1, builtNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+		} else {
+			startForeground(1, builtNotification)
+		}
 	}
 
 	override fun onDestroy() {
