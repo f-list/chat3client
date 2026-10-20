@@ -116,6 +116,13 @@ async function addSpellcheckerItems(menu: Electron.Menu): Promise<void> {
         }));
 }
 
+function getAllSessions(): Electron.Session[] {
+    const sessions = [electron.session.defaultSession];
+    for(const w of electron.webContents.getAllWebContents())
+        if(sessions.indexOf(w.session) === -1) sessions.push(w.session);
+    return sessions;
+}
+
 // ! Chat content is user-supplied, so links reaching the OS must be limited to protocols that can't launch arbitrary handlers.
 function isSafeExternalUrl(linkUrl: string): boolean {
     try {
@@ -195,6 +202,8 @@ function onReady(): void {
     electron.session.defaultSession.setSpellCheckerLanguages(
         getSafeLanguages(settings.spellcheckLang, availableLanguages)
     );
+    // * Words saved by the old native spellchecker live only in settings; Chromium's dictionary needs them re-added once.
+    for(const word of settings.customDictionary) electron.session.defaultSession.addWordToSpellCheckerDictionary(word);
 
     if(settings.version !== app.getVersion()) {
         showPatchNotes();
@@ -428,13 +437,17 @@ function onReady(): void {
         event.returnValue = true;
     });
     electron.ipcMain.on('dictionary-add', (_event: Electron.IpcMainEvent, word: string) => {
-        electron.session.defaultSession.addWordToSpellCheckerDictionary(word);
-        for(const w of electron.webContents.getAllWebContents()) {
-            w.session.addWordToSpellCheckerDictionary(word);
-        }
+        if(settings.customDictionary.indexOf(word) !== -1) return;
+        for(const s of getAllSessions()) s.addWordToSpellCheckerDictionary(word);
+        settings.customDictionary.push(word);
+        setGeneralSettings(settings);
     });
-    electron.ipcMain.on('dictionary-remove', (_event: Electron.IpcMainEvent, _word: string) => {
-        // Electron does not support removing words from the spellchecker dictionary.
+    electron.ipcMain.on('dictionary-remove', (_event: Electron.IpcMainEvent, word: string) => {
+        const index = settings.customDictionary.indexOf(word);
+        if(index === -1) return;
+        for(const s of getAllSessions()) s.removeWordFromSpellCheckerDictionary(word);
+        settings.customDictionary.splice(index, 1);
+        setGeneralSettings(settings);
     });
     electron.ipcMain.on('disconnect', (_event: Electron.IpcMainEvent, character: string) => {
         const index = characters.indexOf(character);
