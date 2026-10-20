@@ -8,14 +8,12 @@
 import { program } from 'commander';
 import { arch as systemArch } from 'os';
 import { build } from 'electron-builder';
-import { execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import {
-  isDockerAvailable,
-  shouldUseDocker,
-  runDockerBuild
-} from './docker-config.mjs';
+import { fileURLToPath } from 'url';
+import { shouldUseDocker, runDockerBuild } from './docker-config.mjs';
+
+const ELECTRON_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const COLORS = {
   reset: '\u001b[0m',
@@ -48,8 +46,7 @@ Examples:
   node build/build.mjs --os linux                    # Build for Linux (default format: deb, arch: x64)
   node build/build.mjs --os macos -f dmg zip         # Build for macOS with dmg and zip formats
   node build/build.mjs --os windows -a x64 ia32      # Build for Windows with x64 and ia32 architectures
-  node build/build.mjs --os linux --docker           # Force Docker build for Linux
-  node build/build.mjs --os macos --no-docker        # Disable Docker for macOS (already disabled by default)
+  node build/build.mjs --os linux --docker           # Build for Linux inside Docker
 
 Supported formats by OS:
   macOS:   dmg, zip, dir
@@ -68,9 +65,7 @@ Supported architectures by OS:
     .requiredOption('--os <os>', 'Target OS (macos, linux, windows)')
     .option('-f, --format <formats...>', 'Output formats')
     .option('-a, --arch <arches...>', 'Target architectures')
-    .option('-v, --version <version>', 'App version')
-    .option('--docker', 'Force Docker builds')
-    .option('--no-docker', 'Disable Docker builds');
+    .option('--docker', 'Build inside the electronuserland/builder Docker image (Linux and Windows only)');
 
   if (typeof p.addHelpText === 'function') {
     p.addHelpText('after', extraHelp);
@@ -145,7 +140,7 @@ function validateOptions(opts, config, targetKey) {
 async function runNativeBuild(opts, targetKey) {
   console.log('Starting native build...');
 
-  const packageJsonPath = path.resolve('../package.json');
+  const packageJsonPath = path.join(ELECTRON_DIR, 'package.json');
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   const baseConfig = packageJson.build || {};
 
@@ -193,4 +188,7 @@ async function runNativeBuild(opts, targetKey) {
   } else {
     await runNativeBuild(opts, targetKey);
   }
-})();
+})().catch(err => {
+  console.error(`${COLORS.red}Build failed:${COLORS.reset}`, err);
+  process.exit(1);
+});

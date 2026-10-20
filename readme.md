@@ -46,14 +46,14 @@ Open-source components of F-List and F-Chat 3.0. This repo builds the client as 
 - `pnpm -C electron pack`
 
 #### Cross-platform packaging script
-`electron/build/build.mjs` wraps electron-builder and optionally uses Docker.
+`electron/build/build.mjs` wraps electron-builder. Builds run natively unless you pass `--docker` (Linux and Windows targets only).
 - `pnpm -C electron build:win` (Windows, nsis)
 - `pnpm -C electron build:linux` (Linux, deb + AppImage)
 - `pnpm -C electron build:mac` (macOS, dmg + zip)
 - Or call directly:
   - `node electron/build/build.mjs --os linux --format deb AppImage`
   - `node electron/build/build.mjs --os windows --arch x64 ia32`
-  - `node electron/build/build.mjs --os linux --docker` to force Docker
+  - `node electron/build/build.mjs --os linux --docker` to build inside Docker
 
 ### Mobile
 - `pnpm -C mobile build` or `pnpm -C mobile watch`

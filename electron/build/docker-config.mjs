@@ -4,6 +4,7 @@
 
 import { execSync } from 'child_process';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const DOCKER_IMAGES = {
   linux: 'electronuserland/builder',
@@ -37,8 +38,9 @@ export function isRunningInGitHubActions() {
   return process.env.GITHUB_ACTIONS === 'true';
 }
 
+// * Docker is opt-in: a reachable daemon on a dev machine must not silently change how the app is packaged.
 export function shouldUseDocker(opts, targetKey, colors) {
-  if (opts.docker === false || targetKey === 'macos') return false;
+  if (!opts.docker || targetKey === 'macos') return false;
 
   if (isRunningInGitHubActions()) {
     console.log(
@@ -47,23 +49,20 @@ export function shouldUseDocker(opts, targetKey, colors) {
     return false;
   }
 
-  if (opts.docker) {
-    if (!isDockerAvailable()) {
-      console.error(
-        `${colors.red}Docker requested but not available${colors.reset}`
-      );
-      process.exit(1);
-    }
-    return true;
+  if (!isDockerAvailable()) {
+    console.error(
+      `${colors.red}Docker requested but not available${colors.reset}`
+    );
+    process.exit(1);
   }
-
-  return isDockerAvailable();
+  return true;
 }
 
 function generateEnvVars(targetKey) {
+  // ! Bare `-e KEY` makes docker read the value from its own environment, so tokens never appear on the command line.
   const hostEnvVars = Object.keys(process.env)
-    .filter(key => ENV_VAR_PATTERNS.test(key))
-    .map(key => `-e ${key}="${process.env[key]}"`)
+    .filter(key => ENV_VAR_PATTERNS.test(key) && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key))
+    .map(key => `-e ${key}`)
     .join(' ');
 
   const baseEnvVars = Object.entries(BASE_ENV_VARS)
@@ -107,7 +106,7 @@ export function runDockerBuild(opts, targetKey) {
   const image = DOCKER_IMAGES[targetKey] || DOCKER_IMAGES.linux;
 
   const envVars = generateEnvVars(targetKey);
-  const repoRoot = path.resolve(process.cwd(), '..');
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   const volumeMappings = generateVolumeMappings(repoRoot);
 
   const formats = opts.format.join(' ');
@@ -117,7 +116,7 @@ export function runDockerBuild(opts, targetKey) {
 
   const isUnix = typeof process.getuid === 'function';
   const ownershipFix = isUnix
-    ? ` && chown -R ${process.getuid()}:${process.getgid()} /project`
+    ? ` && chown -R ${process.getuid()}:${process.getgid()} /project/electron/dist /project/electron/node_modules`
     : '';
 
   const buildCommand = generateBuildCommand(
