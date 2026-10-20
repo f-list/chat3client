@@ -12,7 +12,7 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop, Watch} from '@f-list/vue-ts';
+    import {PropOptions} from 'vue';
     import CustomDialog from '../../components/custom_dialog';
     import Modal from '../../components/Modal.vue';
     import {SimpleCharacter} from '../../interfaces';
@@ -27,47 +27,52 @@
         updated_at: number
     }
 
-    @Component({
-        components: {Modal}
-    })
-    export default class MemoDialog extends CustomDialog {
-        @Prop({required: true})
-        readonly character!: {id: number, name: string};
-        @Prop
-        readonly memo?: Memo;
-        message = '';
-        editing = false;
-        saving = false;
-
-        get name(): string {
-            return this.character.name;
-        }
-
-        show(): void {
-            super.show();
-            this.setMemo();
-        }
-
-        @Watch('memo')
-        setMemo(): void {
-            if(this.memo !== undefined)
-                this.message = this.memo.memo;
-        }
-
-        onClose(): void {
-            this.editing = false;
-        }
-
-        async save(): Promise<void> {
-            try {
-                this.saving = true;
-                const memoReply = await methods.memoUpdate(this.character.id, this.message);
-                this.$emit('memo', this.message !== '' ? memoReply : undefined);
-                this.hide();
-            } catch(e) {
-                Utils.ajaxError(e, 'Unable to set memo.');
+    const MemoDialog = CustomDialog.extend({
+        components: {Modal},
+        props: {
+            character: {required: true} as PropOptions<{id: number, name: string}>,
+            memo: {} as PropOptions<Memo | undefined>
+        },
+        data() {
+            return {
+                message: '',
+                editing: false,
+                saving: false
+            };
+        },
+        computed: {
+            name(): string {
+                return this.character.name;
             }
-            this.saving = false;
+        },
+        watch: {
+            memo: 'setMemo'
+        },
+        methods: {
+            show(): void {
+                CustomDialog.options.methods!.show.call(this);
+                this.setMemo();
+            },
+            setMemo(): void {
+                if(this.memo !== undefined)
+                    this.message = this.memo.memo;
+            },
+            onClose(): void {
+                this.editing = false;
+            },
+            async save(): Promise<void> {
+                try {
+                    this.saving = true;
+                    const memoReply = await methods.memoUpdate(this.character.id, this.message);
+                    this.$emit('memo', this.message !== '' ? memoReply : undefined);
+                    this.hide();
+                } catch(e) {
+                    Utils.ajaxError(e, 'Unable to set memo.');
+                }
+                this.saving = false;
+            }
         }
-    }
+    });
+    type MemoDialog = InstanceType<typeof MemoDialog>;
+    export default MemoDialog;
 </script>

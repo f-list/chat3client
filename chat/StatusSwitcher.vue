@@ -21,7 +21,6 @@
 </template>
 
 <script lang="ts">
-    import {Component} from '@f-list/vue-ts';
     import CustomDialog from '../components/custom_dialog';
     import Dropdown from '../components/Dropdown.vue';
     import Modal from '../components/Modal.vue';
@@ -32,44 +31,49 @@
     import l from './localize';
     import {getStatusIcon} from './user_view';
 
-    @Component({
-        components: {modal: Modal, editor: Editor, dropdown: Dropdown}
-    })
-    export default class StatusSwitcher extends CustomDialog {
-        selectedStatus: Character.Status | undefined;
-        enteredText: string | undefined;
-        statuses = userStatuses;
-        l = l;
-        getByteLength = getByteLength;
-        getStatusIcon = getStatusIcon;
-
-        get status(): Character.Status {
-            return this.selectedStatus !== undefined ? this.selectedStatus : this.character.status;
+    const StatusSwitcher = CustomDialog.extend({
+        components: {modal: Modal, editor: Editor, dropdown: Dropdown},
+        data() {
+            return {
+                selectedStatus: undefined as Character.Status | undefined,
+                enteredText: undefined as string | undefined,
+                statuses: userStatuses,
+                l: l,
+                getByteLength: getByteLength,
+                getStatusIcon: getStatusIcon
+            };
+        },
+        computed: {
+            status: {
+                get(): Character.Status {
+                    return this.selectedStatus !== undefined ? this.selectedStatus : this.character.status;
+                },
+                set(status: Character.Status) {
+                    this.selectedStatus = status;
+                }
+            },
+            text: {
+                get(): string {
+                    return this.enteredText !== undefined ? this.enteredText : this.character.statusText;
+                },
+                set(text: string) {
+                    this.enteredText = text;
+                }
+            },
+            character(): Character {
+                return core.characters.ownCharacter;
+            }
+        },
+        methods: {
+            setStatus(): void {
+                core.connection.send('STA', {status: this.status, statusmsg: this.text});
+            },
+            reset(): void {
+                this.selectedStatus = undefined;
+                this.enteredText = undefined;
+            }
         }
-
-        set status(status: Character.Status) {
-            this.selectedStatus = status;
-        }
-
-        get text(): string {
-            return this.enteredText !== undefined ? this.enteredText : this.character.statusText;
-        }
-
-        set text(text: string) {
-            this.enteredText = text;
-        }
-
-        get character(): Character {
-            return core.characters.ownCharacter;
-        }
-
-        setStatus(): void {
-            core.connection.send('STA', {status: this.status, statusmsg: this.text});
-        }
-
-        reset(): void {
-            this.selectedStatus = undefined;
-            this.enteredText = undefined;
-        }
-    }
+    });
+    type StatusSwitcher = InstanceType<typeof StatusSwitcher>;
+    export default StatusSwitcher;
 </script>

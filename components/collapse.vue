@@ -12,34 +12,39 @@
 </template>
 
 <script lang="ts">
-    import Vue from 'vue';
-    import {Component, Prop} from '@f-list/vue-ts';
+    import Vue, {PropOptions} from 'vue';
 
-    @Component
-    export default class Collapse extends Vue {
-        @Prop({required: true})
-        readonly title!: string;
-        @Prop
-        readonly headerClass?: string;
-        collapsed = true;
-        timeout = 0;
-        style = {height: <string | undefined>'0', transition: 'height .2s'};
-
-        toggle(state?: boolean) {
-            clearTimeout(this.timeout);
-            this.collapsed = state !== undefined ? state : !this.collapsed;
-            this.$emit(this.collapsed ? 'close' : 'open');
-            if(this.collapsed) {
-                this.style.transition = 'initial';
-                this.style.height = `${(<HTMLElement>this.$refs['content']).scrollHeight}px`;
-                setTimeout(() => {
-                    this.style.transition = 'height .2s';
-                    this.style.height = '0';
-                }, 0);
-            } else {
-                this.style.height = `${(<HTMLElement>this.$refs['content']).scrollHeight}px`;
-                this.timeout = window.setTimeout(() => this.style.height = undefined, 200);
+    const Collapse = Vue.extend({
+        props: {
+            title: {required: true} as PropOptions<string>,
+            headerClass: {} as PropOptions<string | undefined>
+        },
+        data() {
+            return {
+                collapsed: true,
+                timeout: 0,
+                style: {height: <string | undefined>'0', transition: 'height .2s'}
+            };
+        },
+        methods: {
+            toggle(state?: boolean) {
+                clearTimeout(this.timeout);
+                this.collapsed = state !== undefined ? state : !this.collapsed;
+                this.$emit(this.collapsed ? 'close' : 'open');
+                if(this.collapsed) {
+                    this.style.transition = 'initial';
+                    this.style.height = `${(<HTMLElement>this.$refs['content']).scrollHeight}px`;
+                    setTimeout(() => {
+                        this.style.transition = 'height .2s';
+                        this.style.height = '0';
+                    }, 0);
+                } else {
+                    this.style.height = `${(<HTMLElement>this.$refs['content']).scrollHeight}px`;
+                    this.timeout = window.setTimeout(() => this.style.height = undefined, 200);
+                }
             }
         }
-    }
+    });
+    type Collapse = InstanceType<typeof Collapse>;
+    export default Collapse;
 </script>

@@ -24,9 +24,8 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
     import cloneDeep = require('lodash/cloneDeep'); //tslint:disable-line:no-require-imports
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
 
     type ParamDictionary = {[key: string]: number | undefined};
     interface RouteParams {
@@ -34,53 +33,49 @@
         params?: ParamDictionary
     }
 
-    @Component
-    export default class SimplePager extends Vue {
-        @Prop({default: 'Next Page'})
-        readonly nextLabel!: string;
-        @Prop({default: 'Previous Page'})
-        readonly prevLabel!: string;
-        @Prop({required: true})
-        readonly next!: boolean;
-        @Prop({required: true})
-        readonly prev!: boolean;
-        @Prop({default: false})
-        readonly routed!: boolean;
-        @Prop({default(this: Vue & {$route: RouteParams}): RouteParams { return this.$route; }})
-        readonly route!: RouteParams;
-        @Prop({default: 'page'})
-        readonly paramName!: string;
-
-        nextPage(): void {
-            if(!this.next)
-                return;
-            this.$emit('next');
-        }
-
-        previousPage(): void {
-            if(!this.prev)
-                return;
-            this.$emit('prev');
-        }
-
-        get prevRoute(): RouteParams {
-            if(this.route.params !== undefined && this.route.params[this.paramName] !== undefined) {
-                const newPage = this.route.params[this.paramName]! - 1;
-                const clone = cloneDeep(this.route);
-                clone.params![this.paramName] = newPage;
-                return clone;
+    const SimplePager = Vue.extend({
+        props: {
+            nextLabel: {default: 'Next Page'} as PropOptions<string>,
+            prevLabel: {default: 'Previous Page'} as PropOptions<string>,
+            next: {required: true} as PropOptions<boolean>,
+            prev: {required: true} as PropOptions<boolean>,
+            routed: {default: false} as PropOptions<boolean>,
+            route: {default(this: Vue & {$route: RouteParams}): RouteParams { return this.$route; }} as PropOptions<RouteParams>,
+            paramName: {default: 'page'} as PropOptions<string>
+        },
+        computed: {
+            prevRoute(): RouteParams {
+                if(this.route.params !== undefined && this.route.params[this.paramName] !== undefined) {
+                    const newPage = this.route.params[this.paramName]! - 1;
+                    const clone = cloneDeep(this.route);
+                    clone.params![this.paramName] = newPage;
+                    return clone;
+                }
+                return {};
+            },
+            nextRoute(): RouteParams {
+                if(this.route.params !== undefined && this.route.params[this.paramName] !== undefined) {
+                    const newPage = this.route.params[this.paramName]! + 1;
+                    const clone = cloneDeep(this.route);
+                    clone.params![this.paramName] = newPage;
+                    return clone;
+                }
+                return {};
             }
-            return {};
-        }
-
-        get nextRoute(): RouteParams {
-            if(this.route.params !== undefined && this.route.params[this.paramName] !== undefined) {
-                const newPage = this.route.params[this.paramName]! + 1;
-                const clone = cloneDeep(this.route);
-                clone.params![this.paramName] = newPage;
-                return clone;
+        },
+        methods: {
+            nextPage(): void {
+                if(!this.next)
+                    return;
+                this.$emit('next');
+            },
+            previousPage(): void {
+                if(!this.prev)
+                    return;
+                this.$emit('prev');
             }
-            return {};
         }
-    }
+    });
+    type SimplePager = InstanceType<typeof SimplePager>;
+    export default SimplePager;
 </script>

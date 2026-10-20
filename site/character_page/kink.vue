@@ -19,45 +19,48 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {DisplayKink} from './interfaces';
 
-    @Component({
-        name: 'kink'
-    })
-    export default class KinkView extends Vue {
-        @Prop({required: true})
-        readonly kink!: DisplayKink;
-        @Prop({required: true})
-        readonly highlights!: {[key: number]: boolean};
-        @Prop({required: true})
-        readonly comparisons!: {[key: number]: string | undefined};
-        listClosed = true;
-        showTooltip = false;
-
-        toggleSubkinks(): void {
-            if(!this.kink.hasSubkinks)
-                return;
-            this.listClosed = !this.listClosed;
-        }
-
-        get kinkClasses(): {[key: string]: boolean} {
-            const classes: {[key: string]: boolean} = {
-                'stock-kink': !this.kink.isCustom,
-                'custom-kink': this.kink.isCustom,
-                highlighted: !this.kink.isCustom && this.highlights[this.kink.id],
-                subkink: this.kink.hasSubkinks
+    const KinkView = Vue.extend({
+        name: 'kink',
+        props: {
+            kink: {required: true} as PropOptions<DisplayKink>,
+            highlights: {required: true} as PropOptions<{[key: number]: boolean}>,
+            comparisons: {required: true} as PropOptions<{[key: number]: string | undefined}>
+        },
+        data() {
+            return {
+                listClosed: true,
+                showTooltip: false
             };
-            classes[`kink-id-${this.kink.key}`] = true;
-            classes[`kink-group-${this.kink.group}`] = true;
-            if(!this.kink.isCustom && typeof this.comparisons[this.kink.id] !== 'undefined')
-                classes[`comparison-${this.comparisons[this.kink.id]}`] = true;
-            return classes;
+        },
+        computed: {
+            kinkClasses(): {[key: string]: boolean} {
+                const classes: {[key: string]: boolean} = {
+                    'stock-kink': !this.kink.isCustom,
+                    'custom-kink': this.kink.isCustom,
+                    highlighted: !this.kink.isCustom && this.highlights[this.kink.id],
+                    subkink: this.kink.hasSubkinks
+                };
+                classes[`kink-id-${this.kink.key}`] = true;
+                classes[`kink-group-${this.kink.group}`] = true;
+                if(!this.kink.isCustom && typeof this.comparisons[this.kink.id] !== 'undefined')
+                    classes[`comparison-${this.comparisons[this.kink.id]}`] = true;
+                return classes;
+            },
+            customId(): number | undefined {
+                return this.kink.isCustom ? this.kink.id : undefined;
+            }
+        },
+        methods: {
+            toggleSubkinks(): void {
+                if(!this.kink.hasSubkinks)
+                    return;
+                this.listClosed = !this.listClosed;
+            }
         }
-
-        get customId(): number | undefined {
-            return this.kink.isCustom ? this.kink.id : undefined;
-        }
-    }
+    });
+    type KinkView = InstanceType<typeof KinkView>;
+    export default KinkView;
 </script>

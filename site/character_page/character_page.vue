@@ -64,8 +64,7 @@
 </template>
 
 <script lang="ts">
-    import {Component, Hook, Prop, Watch} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {StandardBBCodeParser} from '../../bbcode/standard';
     import {BBCodeView} from '../../bbcode/view';
     import DateDisplay from '../../components/date_display.vue';
@@ -87,72 +86,69 @@
 
     const standardParser = new StandardBBCodeParser();
 
-    @Component({
+    const CharacterPage = Vue.extend({
         components: {
             sidebar: Sidebar, date: DateDisplay, 'character-friends': FriendsView, 'character-guestbook': GuestbookView,
             'character-groups': GroupsView, 'character-infotags': InfotagsView, 'character-images': ImagesView, tabs: Tabs,
             'character-kinks': CharacterKinksView, bbcode: BBCodeView(standardParser)
-        }
-    })
-    export default class CharacterPage extends Vue {
-        @Prop
-        readonly name?: string;
-        @Prop
-        readonly id?: number;
-        @Prop({required: true})
-        readonly authenticated!: boolean;
-        @Prop
-        readonly oldApi?: true;
-        @Prop
-        readonly imagePreview?: true;
-        shared: SharedStore = Store;
-        character: Character | undefined;
-        loading = true;
-        error = '';
-        tab = '0';
-
-        @Hook('beforeMount')
+        },
+        props: {
+            name: {} as PropOptions<string | undefined>,
+            id: {} as PropOptions<number | undefined>,
+            authenticated: {required: true} as PropOptions<boolean>,
+            oldApi: {} as PropOptions<true | undefined>,
+            imagePreview: {} as PropOptions<true | undefined>
+        },
+        data() {
+            return {
+                shared: Store as SharedStore,
+                character: undefined as Character | undefined,
+                loading: true,
+                error: '',
+                tab: '0'
+            };
+        },
+        watch: {
+            tab: 'switchTabHook',
+            name: 'onCharacterSet'
+        },
         beforeMount(): void {
             this.shared.authenticated = this.authenticated;
-        }
-
-        @Hook('mounted')
+        },
         async mounted(): Promise<void> {
             if(this.character === undefined) await this._getCharacter();
-        }
-
-        @Watch('tab')
-        switchTabHook(): void {
-            const target = <ShowableVueTab>this.$refs[`tab${this.tab}`];
-            //tslint:disable-next-line:no-unbound-method
-            if(typeof target.show === 'function') target.show();
-        }
-
-        @Watch('name')
-        async onCharacterSet(): Promise<void> {
-            this.tab = '0';
-            return this._getCharacter();
-        }
-
-        memo(memo: {id: number, memo: string}): void {
-            Vue.set(this.character!, 'memo', memo);
-        }
-
-        private async _getCharacter(): Promise<void> {
-            this.error = '';
-            this.character = undefined;
-            if((this.name === undefined || this.name.length === 0) && !this.id)
-                return;
-            try {
-                this.loading = true;
-                await methods.fieldsGet();
-                this.character = await methods.characterData(this.name, this.id);
-                standardParser.inlines = this.character.character.inlines;
-            } catch(e) {
-                this.error = Utils.isJSONError(e) ? <string>e.response.data.error : (<Error>e).message;
-                Utils.ajaxError(e, 'Failed to load character information.');
+        },
+        methods: {
+            switchTabHook(): void {
+                const target = <ShowableVueTab>this.$refs[`tab${this.tab}`];
+                //tslint:disable-next-line:no-unbound-method
+                if(typeof target.show === 'function') target.show();
+            },
+            async onCharacterSet(): Promise<void> {
+                this.tab = '0';
+                return this._getCharacter();
+            },
+            memo(memo: {id: number, memo: string}): void {
+                Vue.set(this.character!, 'memo', memo);
+            },
+            async _getCharacter(): Promise<void> {
+                this.error = '';
+                this.character = undefined;
+                if((this.name === undefined || this.name.length === 0) && !this.id)
+                    return;
+                try {
+                    this.loading = true;
+                    await methods.fieldsGet();
+                    this.character = await methods.characterData(this.name, this.id);
+                    standardParser.inlines = this.character.character.inlines;
+                } catch(e) {
+                    this.error = Utils.isJSONError(e) ? <string>e.response.data.error : (<Error>e).message;
+                    Utils.ajaxError(e, 'Failed to load character information.');
+                }
+                this.loading = false;
             }
-            this.loading = false;
         }
-    }
+    });
+    type CharacterPage = InstanceType<typeof CharacterPage>;
+    export default CharacterPage;
 </script>

@@ -65,8 +65,7 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop, Watch} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {Kink, KinkChoice, KinkGroup} from '../../interfaces';
     import * as Utils from '../utils';
     import CopyCustomMenu from './copy_custom_menu.vue';
@@ -74,142 +73,145 @@
     import {Character, DisplayKink} from './interfaces';
     import KinkView from './kink.vue';
 
-    @Component({
-        components: {'context-menu': CopyCustomMenu, kink: KinkView}
-    })
-    export default class CharacterKinksView extends Vue {
-        @Prop({required: true})
-        readonly character!: Character;
-        @Prop
-        readonly oldApi?: true;
-        shared = Store;
-        characterToCompare = Utils.settings.defaultCharacter;
-        highlightGroup: number | undefined;
-
-        loading = false;
-        comparing = false;
-        highlighting: {[key: string]: boolean} = {};
-        comparison: {[key: string]: KinkChoice} = {};
-
-        async compareKinks(): Promise<void> {
-            if(this.comparing) {
-                this.comparison = {};
-                this.comparing = false;
-                this.loading = false;
-                return;
-            }
-
-            try {
-                this.loading = true;
-                this.comparing = true;
-                const kinks = await methods.kinksGet(this.characterToCompare);
-                const toAssign: {[key: number]: KinkChoice} = {};
-                for(const kink of kinks)
-                    toAssign[kink.id] = kink.choice;
-                this.comparison = toAssign;
-            } catch(e) {
-                this.comparing = false;
-                this.comparison = {};
-                Utils.ajaxError(e, 'Unable to get kinks for comparison.');
-            }
-            this.loading = false;
-        }
-
-        @Watch('highlightGroup')
-        highlightKinks(group: number | null): void {
-            this.highlighting = {};
-            if(group === null) return;
-            const toAssign: {[key: string]: boolean} = {};
-            for(const kinkId in Store.shared.kinks) {
-                const kink = Store.shared.kinks[kinkId];
-                if(kink.kink_group === group)
-                    toAssign[kinkId] = true;
-            }
-            this.highlighting = toAssign;
-        }
-
-        get kinkGroups(): {[key: string]: KinkGroup | undefined} {
-            return Store.shared.kinkGroups;
-        }
-
-        get compareButtonText(): string {
-            if(this.loading)
-                return 'Loading...';
-            return this.comparing ? 'Clear' : 'Compare';
-        }
-
-        get groupedKinks(): {[key in KinkChoice]: DisplayKink[]} {
-            const kinks = Store.shared.kinks;
-            const characterKinks = this.character.character.kinks;
-            const characterCustoms = this.character.character.customs;
-            const displayCustoms: {[key: string]: DisplayKink | undefined} = {};
-            const outputKinks: {[key: string]: DisplayKink[]} = {favorite: [], yes: [], maybe: [], no: []};
-            const makeKink = (kink: Kink): DisplayKink => ({
-                id: kink.id,
-                name: kink.name,
-                description: kink.description,
-                group: kink.kink_group,
-                isCustom: false,
-                hasSubkinks: false,
-                ignore: false,
-                subkinks: [],
-                key: kink.id.toString()
-            });
-            const kinkSorter = (a: DisplayKink, b: DisplayKink) => {
-                if(this.character.settings.customs_first && a.isCustom !== b.isCustom)
-                    return a.isCustom < b.isCustom ? 1 : -1;
-
-                if(a.name === b.name)
-                    return 0;
-                return a.name < b.name ? -1 : 1;
+    const CharacterKinksView = Vue.extend({
+        components: {'context-menu': CopyCustomMenu, kink: KinkView},
+        props: {
+            character: {required: true} as PropOptions<Character>,
+            oldApi: {} as PropOptions<true | undefined>
+        },
+        data() {
+            return {
+                shared: Store,
+                characterToCompare: Utils.settings.defaultCharacter,
+                highlightGroup: undefined as number | undefined,
+                loading: false,
+                comparing: false,
+                highlighting: {} as {[key: string]: boolean},
+                comparison: {} as {[key: string]: KinkChoice}
             };
-
-            for(const id in characterCustoms) {
-                const custom = characterCustoms[id]!;
-                displayCustoms[id] = {
-                    id: custom.id,
-                    name: custom.name,
-                    description: custom.description,
-                    choice: custom.choice,
-                    group: -1,
-                    isCustom: true,
+        },
+        computed: {
+            kinkGroups(): {[key: string]: KinkGroup | undefined} {
+                return Store.shared.kinkGroups;
+            },
+            compareButtonText(): string {
+                if(this.loading)
+                    return 'Loading...';
+                return this.comparing ? 'Clear' : 'Compare';
+            },
+            groupedKinks(): {[key in KinkChoice]: DisplayKink[]} {
+                const kinks = Store.shared.kinks;
+                const characterKinks = this.character.character.kinks;
+                const characterCustoms = this.character.character.customs;
+                const displayCustoms: {[key: string]: DisplayKink | undefined} = {};
+                const outputKinks: {[key: string]: DisplayKink[]} = {favorite: [], yes: [], maybe: [], no: []};
+                const makeKink = (kink: Kink): DisplayKink => ({
+                    id: kink.id,
+                    name: kink.name,
+                    description: kink.description,
+                    group: kink.kink_group,
+                    isCustom: false,
                     hasSubkinks: false,
                     ignore: false,
                     subkinks: [],
-                    key: `c${custom.id}`
+                    key: kink.id.toString()
+                });
+                const kinkSorter = (a: DisplayKink, b: DisplayKink) => {
+                    if(this.character.settings.customs_first && a.isCustom !== b.isCustom)
+                        return a.isCustom < b.isCustom ? 1 : -1;
+
+                    if(a.name === b.name)
+                        return 0;
+                    return a.name < b.name ? -1 : 1;
                 };
-            }
 
-            for(const kinkId in characterKinks) {
-                const kinkChoice = characterKinks[kinkId]!;
-                const kink = <Kink | undefined>kinks[kinkId];
-                if(kink === undefined) continue;
-                const newKink = makeKink(kink);
-                if(typeof kinkChoice === 'number' && typeof displayCustoms[kinkChoice] !== 'undefined') {
-                    const custom = displayCustoms[kinkChoice]!;
-                    newKink.ignore = true;
-                    custom.hasSubkinks = true;
-                    custom.subkinks.push(newKink);
+                for(const id in characterCustoms) {
+                    const custom = characterCustoms[id]!;
+                    displayCustoms[id] = {
+                        id: custom.id,
+                        name: custom.name,
+                        description: custom.description,
+                        choice: custom.choice,
+                        group: -1,
+                        isCustom: true,
+                        hasSubkinks: false,
+                        ignore: false,
+                        subkinks: [],
+                        key: `c${custom.id}`
+                    };
                 }
-                if(!newKink.ignore)
-                    outputKinks[kinkChoice].push(newKink);
+
+                for(const kinkId in characterKinks) {
+                    const kinkChoice = characterKinks[kinkId]!;
+                    const kink = <Kink | undefined>kinks[kinkId];
+                    if(kink === undefined) continue;
+                    const newKink = makeKink(kink);
+                    if(typeof kinkChoice === 'number' && typeof displayCustoms[kinkChoice] !== 'undefined') {
+                        const custom = displayCustoms[kinkChoice]!;
+                        newKink.ignore = true;
+                        custom.hasSubkinks = true;
+                        custom.subkinks.push(newKink);
+                    }
+                    if(!newKink.ignore)
+                        outputKinks[kinkChoice].push(newKink);
+                }
+
+                for(const customId in displayCustoms) {
+                    const custom = displayCustoms[customId]!;
+                    if(custom.hasSubkinks)
+                        custom.subkinks.sort(kinkSorter);
+                    outputKinks[<string>custom.choice].push(custom);
+                }
+
+                for(const choice in outputKinks)
+                    outputKinks[choice].sort(kinkSorter);
+
+                return <{[key in KinkChoice]: DisplayKink[]}>outputKinks;
             }
+        },
+        watch: {
+            highlightGroup: 'highlightKinks'
+        },
+        methods: {
+            async compareKinks(): Promise<void> {
+                if(this.comparing) {
+                    this.comparison = {};
+                    this.comparing = false;
+                    this.loading = false;
+                    return;
+                }
 
-            for(const customId in displayCustoms) {
-                const custom = displayCustoms[customId]!;
-                if(custom.hasSubkinks)
-                    custom.subkinks.sort(kinkSorter);
-                outputKinks[<string>custom.choice].push(custom);
+                try {
+                    this.loading = true;
+                    this.comparing = true;
+                    const kinks = await methods.kinksGet(this.characterToCompare);
+                    const toAssign: {[key: number]: KinkChoice} = {};
+                    for(const kink of kinks)
+                        toAssign[kink.id] = kink.choice;
+                    this.comparison = toAssign;
+                } catch(e) {
+                    this.comparing = false;
+                    this.comparison = {};
+                    Utils.ajaxError(e, 'Unable to get kinks for comparison.');
+                }
+                this.loading = false;
+            },
+            highlightKinks(group: number | null): void {
+                this.highlighting = {};
+                if(group === null) return;
+                const toAssign: {[key: string]: boolean} = {};
+                for(const kinkId in Store.shared.kinks) {
+                    const kink = Store.shared.kinks[kinkId];
+                    if(kink.kink_group === group)
+                        toAssign[kinkId] = true;
+                }
+                this.highlighting = toAssign;
+            },
+            contextMenu(event: TouchEvent): void {
+                if(this.shared.authenticated && !this.oldApi) (<CopyCustomMenu>this.$refs['context-menu']).outerClick(event);
             }
-
-            for(const choice in outputKinks)
-                outputKinks[choice].sort(kinkSorter);
-
-            return <{[key in KinkChoice]: DisplayKink[]}>outputKinks;
         }
-
-        contextMenu(event: TouchEvent): void {
-            if(this.shared.authenticated && !this.oldApi) (<CopyCustomMenu>this.$refs['context-menu']).outerClick(event);
-        }
-    }
+    });
+    type CharacterKinksView = InstanceType<typeof CharacterKinksView>;
+    export default CharacterKinksView;
 </script>

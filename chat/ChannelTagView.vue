@@ -7,32 +7,32 @@
 </template>
 
 <script lang="ts">
-    import {Component, Hook, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import core from './core';
     import {Channel} from './interfaces';
 
-    @Component
-    export default class ChannelView extends Vue {
-        @Prop({required: true})
-        readonly id!: string;
-        @Prop({required: true})
-        readonly text!: string;
-
-        @Hook('mounted')
+    const ChannelView = Vue.extend({
+        props: {
+            id: {required: true} as PropOptions<string>,
+            text: {required: true} as PropOptions<string>
+        },
+        computed: {
+            channel(): Channel.ListItem | undefined {
+                return core.channels.getChannelItem(this.id);
+            }
+        },
         mounted(): void {
             core.channels.requestChannelsIfNeeded(300000);
+        },
+        methods: {
+            joinChannel(): void {
+                if(this.channel === undefined || !this.channel.isJoined)
+                    core.channels.join(this.id);
+                const channel = core.conversations.byKey(`#${this.id}`);
+                if(channel !== undefined) channel.show();
+            }
         }
-
-        joinChannel(): void {
-            if(this.channel === undefined || !this.channel.isJoined)
-                core.channels.join(this.id);
-            const channel = core.conversations.byKey(`#${this.id}`);
-            if(channel !== undefined) channel.show();
-        }
-
-        get channel(): Channel.ListItem | undefined {
-            return core.channels.getChannelItem(this.id);
-        }
-    }
+    });
+    type ChannelView = InstanceType<typeof ChannelView>;
+    export default ChannelView;
 </script>

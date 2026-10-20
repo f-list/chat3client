@@ -17,49 +17,52 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {CharacterImage} from '../../interfaces';
     import * as Utils from '../utils';
     import {methods} from './data_store';
     import {Character} from './interfaces';
 
-    @Component
-    export default class ImagesView extends Vue {
-        @Prop({required: true})
-        private readonly character!: Character;
-        @Prop
-        private readonly usePreview?: boolean;
-        private shown = false;
-        previewImage = '';
-        images: CharacterImage[] = [];
-        loading = true;
-        error = '';
-
-        imageUrl = (image: CharacterImage) => methods.imageUrl(image);
-        thumbUrl = (image: CharacterImage) => methods.imageThumbUrl(image);
-
-        async show(): Promise<void> {
-            if(this.shown) return;
-            try {
-                this.error = '';
-                this.shown = true;
-                this.loading = true;
-                this.images = await methods.imagesGet(this.character.character.id);
-            } catch(e) {
-                this.shown = false;
-                if(Utils.isJSONError(e))
-                    this.error = <string>e.response.data.error;
-                Utils.ajaxError(e, 'Unable to load images.');
+    const ImagesView = Vue.extend({
+        props: {
+            character: {required: true} as PropOptions<Character>,
+            usePreview: {} as PropOptions<boolean | undefined>
+        },
+        data() {
+            return {
+                shown: false,
+                previewImage: '',
+                images: [] as CharacterImage[],
+                loading: true,
+                error: '',
+                imageUrl: (image: CharacterImage) => methods.imageUrl(image),
+                thumbUrl: (image: CharacterImage) => methods.imageThumbUrl(image)
+            };
+        },
+        methods: {
+            async show(): Promise<void> {
+                if(this.shown) return;
+                try {
+                    this.error = '';
+                    this.shown = true;
+                    this.loading = true;
+                    this.images = await methods.imagesGet(this.character.character.id);
+                } catch(e) {
+                    this.shown = false;
+                    if(Utils.isJSONError(e))
+                        this.error = <string>e.response.data.error;
+                    Utils.ajaxError(e, 'Unable to load images.');
+                }
+                this.loading = false;
+            },
+            handleImageClick(e: MouseEvent, image: CharacterImage): void {
+                if(this.usePreview) {
+                    this.previewImage = methods.imageUrl(image);
+                    e.preventDefault();
+                }
             }
-            this.loading = false;
         }
-
-        handleImageClick(e: MouseEvent, image: CharacterImage): void {
-            if(this.usePreview) {
-                this.previewImage = methods.imageUrl(image);
-                e.preventDefault();
-            }
-        }
-    }
+    });
+    type ImagesView = InstanceType<typeof ImagesView>;
+    export default ImagesView;
 </script>

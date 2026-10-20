@@ -16,7 +16,6 @@
 </template>
 
 <script lang="ts">
-    import {Component} from '@f-list/vue-ts';
     import CustomDialog from '../components/custom_dialog';
     import Modal from '../components/Modal.vue';
     import Tabs from '../components/tabs';
@@ -26,25 +25,30 @@
     import l from './localize';
     import UserView from './user_view';
 
-    @Component({
-        components: {'user-view': UserView, 'channel-view': ChannelView, modal: Modal, tabs: Tabs}
-    })
-    export default class RecentConversations extends CustomDialog {
-        l = l;
-        selectedTab = '0';
-
-        get recentPrivate(): ReadonlyArray<Conversation.RecentPrivateConversation> {
-            return core.conversations.recent;
+    const RecentConversations = CustomDialog.extend({
+        components: {'user-view': UserView, 'channel-view': ChannelView, modal: Modal, tabs: Tabs},
+        data() {
+            return {
+                l: l,
+                selectedTab: '0'
+            };
+        },
+        computed: {
+            recentPrivate(): ReadonlyArray<Conversation.RecentPrivateConversation> {
+                return core.conversations.recent;
+            },
+            recentChannels(): ReadonlyArray<Conversation.RecentChannelConversation> {
+                return core.conversations.recentChannels;
+            }
+        },
+        methods: {
+            getCharacter(name: string): Character {
+                return core.characters.get(name);
+            }
         }
-
-        get recentChannels(): ReadonlyArray<Conversation.RecentChannelConversation> {
-            return core.conversations.recentChannels;
-        }
-
-        getCharacter(name: string): Character {
-            return core.characters.get(name);
-        }
-    }
+    });
+    type RecentConversations = InstanceType<typeof RecentConversations>;
+    export default RecentConversations;
 </script>
 
 <style lang="scss">

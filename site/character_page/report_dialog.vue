@@ -40,59 +40,65 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
+    import {PropOptions} from 'vue';
     import CustomDialog from '../../components/custom_dialog';
     import Modal from '../../components/Modal.vue';
     import * as Utils from '../utils';
     import {methods} from './data_store';
     import {Character} from './interfaces';
 
-    @Component({
-        components: {modal: Modal}
-    })
-    export default class ReportDialog extends CustomDialog {
-        @Prop({required: true})
-        readonly character!: Character;
-        ourCharacter = Utils.settings.defaultCharacter;
-        type = '';
-        violation = '';
-        message = '';
-        submitting = false;
-        ticketUrl = `${Utils.siteDomain}tickets/new`;
-
-        get name(): string {
-            return this.character.character.name;
-        }
-
-        get dataValid(): boolean {
-            if(this.type === '' || this.type === 'takedown')
-                return false;
-            if(this.message === '')
-                return false;
-            if(this.type === 'profile' && this.violation === '')
-                return false;
-            return true;
-        }
-
-        async submitReport(): Promise<void> {
-            try {
-                this.submitting = true;
-                const message = (this.type === 'profile' ? `Reporting character for violation: ${this.violation}\n\n` : '') + this.message;
-                await methods.characterReport({
-                    subject: (this.type === 'name_request' ? 'Requesting name: ' : 'Reporting character: ') + this.name,
-                    message,
-                    character: this.ourCharacter,
-                    type: this.type,
-                    url: Utils.characterURL(this.name),
-                    reported_character: this.character.character.id
-                });
-                this.submitting = false;
-                this.hide();
-                Utils.flashSuccess('Character reported.');
-            } catch(e) {
-                this.submitting = false;
-                Utils.ajaxError(e, 'Unable to report character');
+    const ReportDialog = CustomDialog.extend({
+        components: {modal: Modal},
+        props: {
+            character: {required: true} as PropOptions<Character>
+        },
+        data() {
+            return {
+                ourCharacter: Utils.settings.defaultCharacter,
+                type: '',
+                violation: '',
+                message: '',
+                submitting: false,
+                ticketUrl: `${Utils.siteDomain}tickets/new`
+            };
+        },
+        computed: {
+            name(): string {
+                return this.character.character.name;
+            },
+            dataValid(): boolean {
+                if(this.type === '' || this.type === 'takedown')
+                    return false;
+                if(this.message === '')
+                    return false;
+                if(this.type === 'profile' && this.violation === '')
+                    return false;
+                return true;
+            }
+        },
+        methods: {
+            async submitReport(): Promise<void> {
+                try {
+                    this.submitting = true;
+                    const message = (this.type === 'profile' ? `Reporting character for violation: ${this.violation}\n\n` : '') + this.message;
+                    await methods.characterReport({
+                        subject: (this.type === 'name_request' ? 'Requesting name: ' : 'Reporting character: ') + this.name,
+                        message,
+                        character: this.ourCharacter,
+                        type: this.type,
+                        url: Utils.characterURL(this.name),
+                        reported_character: this.character.character.id
+                    });
+                    this.submitting = false;
+                    this.hide();
+                    Utils.flashSuccess('Character reported.');
+                } catch(e) {
+                    this.submitting = false;
+                    Utils.ajaxError(e, 'Unable to report character');
+                }
             }
         }
-    }
+    });
+    type ReportDialog = InstanceType<typeof ReportDialog>;
+    export default ReportDialog;
 </script>

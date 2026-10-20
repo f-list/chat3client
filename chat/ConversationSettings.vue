@@ -39,43 +39,49 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
+    import {PropOptions} from 'vue';
     import CustomDialog from '../components/custom_dialog';
     import Modal from '../components/Modal.vue';
+    import {unset} from './common';
     import {Conversation} from './interfaces';
     import l from './localize';
 
-    @Component({
-        components: {modal: Modal}
-    })
-    export default class ConversationSettings extends CustomDialog {
-        @Prop({required: true})
-        readonly conversation!: Conversation;
-        l = l;
-        setting = Conversation.Setting;
-        notify!: Conversation.Setting;
-        highlight!: Conversation.Setting;
-        highlightWords!: string;
-        joinMessages!: Conversation.Setting;
-        defaultHighlights!: boolean;
-
-        load(): void {
-            const settings = this.conversation.settings;
-            this.notify = settings.notify;
-            this.highlight = settings.highlight;
-            this.highlightWords = settings.highlightWords.join(',');
-            this.joinMessages = settings.joinMessages;
-            this.defaultHighlights = settings.defaultHighlights;
-        }
-
-        submit(): void {
-            this.conversation.settings = {
-                notify: this.notify,
-                highlight: this.highlight,
-                highlightWords: this.highlightWords.split(',').map((x) => x.trim()).filter((x) => x.length),
-                joinMessages: this.joinMessages,
-                defaultHighlights: this.defaultHighlights
+    const ConversationSettings = CustomDialog.extend({
+        components: {modal: Modal},
+        props: {
+            conversation: {required: true} as PropOptions<Conversation>
+        },
+        data() {
+            return {
+                l: l,
+                setting: Conversation.Setting,
+                notify: unset<Conversation.Setting>(),
+                highlight: unset<Conversation.Setting>(),
+                highlightWords: unset<string>(),
+                joinMessages: unset<Conversation.Setting>(),
+                defaultHighlights: unset<boolean>()
             };
+        },
+        methods: {
+            load(): void {
+                const settings = this.conversation.settings;
+                this.notify = settings.notify;
+                this.highlight = settings.highlight;
+                this.highlightWords = settings.highlightWords.join(',');
+                this.joinMessages = settings.joinMessages;
+                this.defaultHighlights = settings.defaultHighlights;
+            },
+            submit(): void {
+                this.conversation.settings = {
+                    notify: this.notify,
+                    highlight: this.highlight,
+                    highlightWords: this.highlightWords.split(',').map((x) => x.trim()).filter((x) => x.length),
+                    joinMessages: this.joinMessages,
+                    defaultHighlights: this.defaultHighlights
+                };
+            }
         }
-    }
+    });
+    type ConversationSettings = InstanceType<typeof ConversationSettings>;
+    export default ConversationSettings;
 </script>

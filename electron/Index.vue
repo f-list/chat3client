@@ -76,7 +76,6 @@
 </template>
 
 <script lang="ts">
-    import {Component, Hook} from '@f-list/vue-ts';
     import Axios from 'axios';
     import * as electron from 'electron';
     import * as remote from '@electron/remote';
@@ -87,7 +86,7 @@
     import Raven from 'raven-js';
     import Vue from 'vue';
     import Chat from '../chat/Chat.vue';
-    import {getKey, Settings} from '../chat/common';
+    import {getKey, Settings, unset} from '../chat/common';
     import core from '../chat/core';
     import l from '../chat/localize';
     import Logs from '../chat/Logs.vue';
@@ -108,27 +107,40 @@
 
     const keyStore = new SecureStore('fchat-accounts', remote);
 
-    @Component({
-        components: {chat: Chat, modal: Modal, characterPage: CharacterPage, logs: Logs}
-    })
-    export default class Index extends Vue {
-        showAdvanced = false;
-        saveLogin = false;
-        canSaveLogin = keyStore.isAvailable();
-        loggingIn = false;
-        password = '';
-        character?: string;
-        characters?: SimpleCharacter[];
-        error = '';
-        defaultCharacter?: number;
-        l = l;
-        settings!: GeneralSettings;
-        importProgress = 0;
-        profileName = '';
-        fixCharacters: ReadonlyArray<string> = [];
-        fixCharacter = '';
-
-        @Hook('created')
+    const Index = Vue.extend({
+        components: {chat: Chat, modal: Modal, characterPage: CharacterPage, logs: Logs},
+        data() {
+            return {
+                showAdvanced: false,
+                saveLogin: false,
+                canSaveLogin: keyStore.isAvailable(),
+                loggingIn: false,
+                password: '',
+                character: undefined as string | undefined,
+                characters: undefined as SimpleCharacter[] | undefined,
+                error: '',
+                defaultCharacter: undefined as number | undefined,
+                l: l,
+                settings: unset<GeneralSettings>(),
+                importProgress: 0,
+                profileName: '',
+                fixCharacters: [] as ReadonlyArray<string>,
+                fixCharacter: ''
+            };
+        },
+        computed: {
+            styling(): string {
+                try {
+                    return `<style id="themeStyle">${fs.readFileSync(path.join(__dirname, `themes/${this.settings.theme}.css`))}</style>`;
+                } catch(e) {
+                    if((<Error & {code: string}>e).code === 'ENOENT' && this.settings.theme !== 'default') {
+                        this.settings.theme = 'default';
+                        return this.styling;
+                    }
+                    throw e;
+                }
+            }
+        },
         created(): void {
             if(this.settings.account.length > 0) this.saveLogin = this.canSaveLogin;
             if(!this.canSaveLogin) log.warn('OS encryption is unavailable; passwords will not be saved.');
@@ -153,121 +165,107 @@
                 if(getKey(e) === Keys.Tab && e.ctrlKey && !e.altKey && !e.shiftKey)
                     parent.send('switch-tab', this.character);
             });
-        }
-
-        async login(): Promise<void> {
-            if(this.loggingIn) return;
-            this.loggingIn = true;
-            try {
-                if(!this.saveLogin) await keyStore.deletePassword('f-list.net', this.settings.account);
-                const data = <{ticket?: string, error: string, characters: {[key: string]: number}, default_character: number}>
-                    (await Axios.post('https://www.f-list.net/json/getApiTicket.php', qs.stringify({
-                        account: this.settings.account, password: this.password, no_friends: true, no_bookmarks: true,
-                        new_character_list: true
-                    }))).data;
-                if(data.error !== '') {
-                    this.error = data.error;
-                    return;
-                }
-                if(this.saveLogin) {
-                    electron.ipcRenderer.send('save-login', this.settings.account, this.settings.host);
-                    if(!await keyStore.setPassword('f-list.net', this.settings.account, this.password))
-                        this.error = l('login.saveUnavailable');
-                }
-                Socket.host = this.settings.host;
-
-                core.connection.onEvent('connecting', async() => {
-                    if(!electron.ipcRenderer.sendSync('connect', core.connection.character) && process.env.NODE_ENV === 'production') {
-                        alert(l('login.alreadyLoggedIn'));
-                        return core.connection.close();
+        },
+        methods: {
+            async login(): Promise<void> {
+                if(this.loggingIn) return;
+                this.loggingIn = true;
+                try {
+                    if(!this.saveLogin) await keyStore.deletePassword('f-list.net', this.settings.account);
+                    const data = <{ticket?: string, error: string, characters: {[key: string]: number}, default_character: number}>
+                        (await Axios.post('https://www.f-list.net/json/getApiTicket.php', qs.stringify({
+                            account: this.settings.account, password: this.password, no_friends: true, no_bookmarks: true,
+                            new_character_list: true
+                        }))).data;
+                    if(data.error !== '') {
+                        this.error = data.error;
+                        return;
                     }
-                    parent.send('connect', webContents.id, core.connection.character);
-                    this.character = core.connection.character;
-                    if((await core.settingsStore.get('settings')) === undefined &&
-                        SlimcatImporter.canImportCharacter(core.connection.character)) {
-                        if(!confirm(l('importer.importGeneral'))) return core.settingsStore.set('settings', new Settings());
-                        (<Modal>this.$refs['importModal']).show(true);
-                        await SlimcatImporter.importCharacter(core.connection.character, (progress) => this.importProgress = progress);
-                        (<Modal>this.$refs['importModal']).hide();
+                    if(this.saveLogin) {
+                        electron.ipcRenderer.send('save-login', this.settings.account, this.settings.host);
+                        if(!await keyStore.setPassword('f-list.net', this.settings.account, this.password))
+                            this.error = l('login.saveUnavailable');
                     }
-                });
-                core.connection.onEvent('connected', () => {
-                    core.watch(() => core.conversations.hasNew, (newValue) => parent.send('has-new', webContents.id, newValue));
-                    Raven.setUserContext({username: core.connection.character});
-                });
-                core.connection.onEvent('closed', () => {
-                    if(this.character === undefined) return;
-                    electron.ipcRenderer.send('disconnect', this.character);
-                    this.character = undefined;
-                    parent.send('disconnect', webContents.id);
-                    Raven.setUserContext();
-                });
-                core.connection.setCredentials(this.settings.account, this.password);
-                this.characters = Object.keys(data.characters).map((name) => ({name, id: data.characters[name], deleted: false}))
-                    .sort((x, y) => x.name.localeCompare(y.name));
-                this.defaultCharacter = data.default_character;
-            } catch(e) {
-                this.error = l('login.error');
-                if(process.env.NODE_ENV !== 'production') throw e;
-            } finally {
-                this.loggingIn = false;
-            }
-        }
+                    Socket.host = this.settings.host;
 
-        fixLogs(): void {
-            if(!electron.ipcRenderer.sendSync('connect', this.fixCharacter)) return alert(l('login.alreadyLoggedIn'));
-            try {
-                fixLogs(this.fixCharacter);
-                alert(l('fixLogs.success'));
-            } catch(e) {
-                alert(l('fixLogs.error'));
-                throw e;
-            } finally {
-                electron.ipcRenderer.send('disconnect', this.fixCharacter);
-            }
-        }
-
-        resetHost(): void {
-            this.settings.host = defaultHost;
-        }
-
-        onMouseOver(e: MouseEvent): void {
-            const preview = (<HTMLDivElement>this.$refs.linkPreview);
-            if((<HTMLElement>e.target).tagName === 'A') {
-                const target = <HTMLAnchorElement>e.target;
-                if(target.hostname !== '') {
-                    //tslint:disable-next-line:prefer-template
-                    preview.className = 'link-preview ' +
-                        (e.clientX < window.innerWidth / 2 && e.clientY > window.innerHeight - 150 ? ' right' : '');
-                    preview.textContent = target.href;
-                    preview.style.display = 'block';
-                    return;
+                    core.connection.onEvent('connecting', async() => {
+                        if(!electron.ipcRenderer.sendSync('connect', core.connection.character) && process.env.NODE_ENV === 'production') {
+                            alert(l('login.alreadyLoggedIn'));
+                            return core.connection.close();
+                        }
+                        parent.send('connect', webContents.id, core.connection.character);
+                        this.character = core.connection.character;
+                        if((await core.settingsStore.get('settings')) === undefined &&
+                            SlimcatImporter.canImportCharacter(core.connection.character)) {
+                            if(!confirm(l('importer.importGeneral'))) return core.settingsStore.set('settings', new Settings());
+                            (<Modal>this.$refs['importModal']).show(true);
+                            await SlimcatImporter.importCharacter(core.connection.character, (progress) => this.importProgress = progress);
+                            (<Modal>this.$refs['importModal']).hide();
+                        }
+                    });
+                    core.connection.onEvent('connected', () => {
+                        core.watch(() => core.conversations.hasNew, (newValue) => parent.send('has-new', webContents.id, newValue));
+                        Raven.setUserContext({username: core.connection.character});
+                    });
+                    core.connection.onEvent('closed', () => {
+                        if(this.character === undefined) return;
+                        electron.ipcRenderer.send('disconnect', this.character);
+                        this.character = undefined;
+                        parent.send('disconnect', webContents.id);
+                        Raven.setUserContext();
+                    });
+                    core.connection.setCredentials(this.settings.account, this.password);
+                    this.characters = Object.keys(data.characters).map((name) => ({name, id: data.characters[name], deleted: false}))
+                        .sort((x, y) => x.name.localeCompare(y.name));
+                    this.defaultCharacter = data.default_character;
+                } catch(e) {
+                    this.error = l('login.error');
+                    if(process.env.NODE_ENV !== 'production') throw e;
+                } finally {
+                    this.loggingIn = false;
                 }
-            }
-            preview.textContent = '';
-            preview.style.display = 'none';
-        }
-
-        async openProfileInBrowser(): Promise<void> {
-            return remote.shell.openExternal(`https://www.f-list.net/c/${this.profileName}`);
-        }
-
-        get styling(): string {
-            try {
-                return `<style id="themeStyle">${fs.readFileSync(path.join(__dirname, `themes/${this.settings.theme}.css`))}</style>`;
-            } catch(e) {
-                if((<Error & {code: string}>e).code === 'ENOENT' && this.settings.theme !== 'default') {
-                    this.settings.theme = 'default';
-                    return this.styling;
+            },
+            fixLogs(): void {
+                if(!electron.ipcRenderer.sendSync('connect', this.fixCharacter)) return alert(l('login.alreadyLoggedIn'));
+                try {
+                    fixLogs(this.fixCharacter);
+                    alert(l('fixLogs.success'));
+                } catch(e) {
+                    alert(l('fixLogs.error'));
+                    throw e;
+                } finally {
+                    electron.ipcRenderer.send('disconnect', this.fixCharacter);
                 }
-                throw e;
+            },
+            resetHost(): void {
+                this.settings.host = defaultHost;
+            },
+            onMouseOver(e: MouseEvent): void {
+                const preview = (<HTMLDivElement>this.$refs.linkPreview);
+                if((<HTMLElement>e.target).tagName === 'A') {
+                    const target = <HTMLAnchorElement>e.target;
+                    if(target.hostname !== '') {
+                        //tslint:disable-next-line:prefer-template
+                        preview.className = 'link-preview ' +
+                            (e.clientX < window.innerWidth / 2 && e.clientY > window.innerHeight - 150 ? ' right' : '');
+                        preview.textContent = target.href;
+                        preview.style.display = 'block';
+                        return;
+                    }
+                }
+                preview.textContent = '';
+                preview.style.display = 'none';
+            },
+            async openProfileInBrowser(): Promise<void> {
+                return remote.shell.openExternal(`https://www.f-list.net/c/${this.profileName}`);
+            },
+            showLogs(): void {
+                (<Logs>this.$refs['logsDialog']).show();
             }
         }
-
-        showLogs(): void {
-            (<Logs>this.$refs['logsDialog']).show();
-        }
-    }
+    });
+    type Index = InstanceType<typeof Index>;
+    export default Index;
 </script>
 
 <style>

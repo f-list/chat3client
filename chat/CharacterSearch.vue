@@ -26,13 +26,12 @@
 </template>
 
 <script lang="ts">
-    import {Component, Hook} from '@f-list/vue-ts';
     import Axios from 'axios';
     import {BBCodeView} from '../bbcode/view';
     import CustomDialog from '../components/custom_dialog';
     import FilterableSelect from '../components/FilterableSelect.vue';
     import Modal from '../components/Modal.vue';
-    import {characterImage} from './common';
+    import {characterImage, unset} from './common';
     import core from './core';
     import {Character, Connection} from './interfaces';
     import l from './localize';
@@ -65,20 +64,25 @@
         positions: string[]
     }
 
-    @Component({
-        components: {modal: Modal, user: UserView, 'filterable-select': FilterableSelect, bbcode: BBCodeView(core.bbCodeParser)}
-    })
-    export default class CharacterSearch extends CustomDialog {
-        l = l;
-        kinksFilter = '';
-        error = '';
-        results: Character[] | undefined;
-        characterImage = characterImage;
-        options!: Data;
-        data: Data = {kinks: [], genders: [], orientations: [], languages: [], furryprefs: [], roles: [], positions: []};
-        listItems: ReadonlyArray<keyof Data> = ['genders', 'orientations', 'languages', 'furryprefs', 'roles', 'positions'];
-
-        @Hook('created')
+    const CharacterSearch = CustomDialog.extend({
+        components: {modal: Modal, user: UserView, 'filterable-select': FilterableSelect, bbcode: BBCodeView(core.bbCodeParser)},
+        data() {
+            return {
+                l: l,
+                kinksFilter: '',
+                error: '',
+                results: undefined as Character[] | undefined,
+                characterImage: characterImage,
+                options: unset<Data>(),
+                data: {kinks: [], genders: [], orientations: [], languages: [], furryprefs: [], roles: [], positions: []} as Data,
+                listItems: ['genders', 'orientations', 'languages', 'furryprefs', 'roles', 'positions'] as ReadonlyArray<keyof Data>
+            };
+        },
+        computed: {
+            showAvatars(): boolean {
+                return core.state.settings.showAvatars;
+            }
+        },
         async created(): Promise<void> {
             if(options === undefined)
                 options = <Options | undefined>(await Axios.get('https://www.f-list.net/json/api/mapping-list.php')).data;
@@ -92,9 +96,7 @@
                 roles: options.listitems.filter((x) => x.name === 'subdom').map((x) => x.value),
                 positions: options.listitems.filter((x) => x.name === 'position').map((x) => x.value)
             });
-        }
-
-        @Hook('mounted')
+        },
         mounted(): void {
             core.connection.onMessage('ERR', (data) => {
                 switch(data.number) {
@@ -112,33 +114,31 @@
                 this.results = data.characters.map((x) => core.characters.get(x))
                     .filter((x) => core.state.hiddenUsers.indexOf(x.name) === -1 && !x.isIgnored).sort(sort);
             });
-        }
-
-        filterKink(filter: RegExp, kink: Kink): boolean {
-            if(this.data.kinks.length >= 5)
-                return this.data.kinks.indexOf(kink) !== -1;
-            return filter.test(kink.name);
-        }
-
-        get showAvatars(): boolean {
-            return core.state.settings.showAvatars;
-        }
-
-        submit(): void {
-            if(this.results !== undefined) {
-                this.results = undefined;
-                return;
+        },
+        methods: {
+            filterKink(filter: RegExp, kink: Kink): boolean {
+                if(this.data.kinks.length >= 5)
+                    return this.data.kinks.indexOf(kink) !== -1;
+                return filter.test(kink.name);
+            },
+            submit(): void {
+                if(this.results !== undefined) {
+                    this.results = undefined;
+                    return;
+                }
+                this.error = '';
+                const data: Connection.ClientCommands['FKS'] & {[key: string]: (string | number)[]} = {kinks: []};
+                for(const key in this.data) {
+                    const item = this.data[<keyof Data>key];
+                    if(item.length > 0)
+                        data[key] = key === 'kinks' ? (<Kink[]>item).map((x) => x.id) : (<string[]>item);
+                }
+                core.connection.send('FKS', data);
             }
-            this.error = '';
-            const data: Connection.ClientCommands['FKS'] & {[key: string]: (string | number)[]} = {kinks: []};
-            for(const key in this.data) {
-                const item = this.data[<keyof Data>key];
-                if(item.length > 0)
-                    data[key] = key === 'kinks' ? (<Kink[]>item).map((x) => x.id) : (<string[]>item);
-            }
-            core.connection.send('FKS', data);
         }
-    }
+    });
+    type CharacterSearch = InstanceType<typeof CharacterSearch>;
+    export default CharacterSearch;
 </script>
 
 <style lang="scss">

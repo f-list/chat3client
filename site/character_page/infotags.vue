@@ -10,27 +10,29 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {Infotag, InfotagGroup} from '../../interfaces';
     import {Store} from './data_store';
     import InfotagView from './infotag.vue';
     import {Character} from './interfaces';
 
-    @Component({
-        components: {infotag: InfotagView}
-    })
-    export default class InfotagsView extends Vue {
-        @Prop({required: true})
-        readonly character!: Character;
-
-        get groups(): {readonly [key: string]: Readonly<InfotagGroup>} {
-            return Store.shared.infotagGroups;
+    const InfotagsView = Vue.extend({
+        components: {infotag: InfotagView},
+        props: {
+            character: {required: true} as PropOptions<Character>
+        },
+        computed: {
+            groups(): {readonly [key: string]: Readonly<InfotagGroup>} {
+                return Store.shared.infotagGroups;
+            }
+        },
+        methods: {
+            getInfotags(group: number): Infotag[] {
+                return Object.keys(Store.shared.infotags).map((x) => Store.shared.infotags[x])
+                    .filter((x) => x.infotag_group === group && this.character.character.infotags[x.id] !== undefined);
+            }
         }
-
-        getInfotags(group: number): Infotag[] {
-            return Object.keys(Store.shared.infotags).map((x) => Store.shared.infotags[x])
-                .filter((x) => x.infotag_group === group && this.character.character.infotags[x.id] !== undefined);
-        }
-    }
+    });
+    type InfotagsView = InstanceType<typeof InfotagsView>;
+    export default InfotagsView;
 </script>

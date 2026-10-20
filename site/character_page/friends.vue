@@ -11,39 +11,44 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import * as Utils from '../utils';
     import {methods} from './data_store';
     import {Character} from './interfaces';
     import {SimpleCharacter} from '../../interfaces';
 
-    @Component
-    export default class FriendsView extends Vue {
-        @Prop({required: true})
-        private readonly character!: Character;
-        private shown = false;
-        friends: SimpleCharacter[] = [];
-        loading = true;
-        error = '';
-
-        avatarUrl = Utils.avatarURL;
-        characterUrl = Utils.characterURL;
-
-        async show(): Promise<void> {
-            if(this.shown) return;
-            try {
-                this.error = '';
-                this.shown = true;
-                this.loading = true;
-                this.friends = await methods.friendsGet(this.character.character.id);
-            } catch(e) {
-                this.shown = false;
-                if(Utils.isJSONError(e))
-                    this.error = <string>e.response.data.error;
-                Utils.ajaxError(e, 'Unable to load friends.');
+    const FriendsView = Vue.extend({
+        props: {
+            character: {required: true} as PropOptions<Character>
+        },
+        data() {
+            return {
+                shown: false,
+                friends: [] as SimpleCharacter[],
+                loading: true,
+                error: '',
+                avatarUrl: Utils.avatarURL,
+                characterUrl: Utils.characterURL
+            };
+        },
+        methods: {
+            async show(): Promise<void> {
+                if(this.shown) return;
+                try {
+                    this.error = '';
+                    this.shown = true;
+                    this.loading = true;
+                    this.friends = await methods.friendsGet(this.character.character.id);
+                } catch(e) {
+                    this.shown = false;
+                    if(Utils.isJSONError(e))
+                        this.error = <string>e.response.data.error;
+                    Utils.ajaxError(e, 'Unable to load friends.');
+                }
+                this.loading = false;
             }
-            this.loading = false;
         }
-    }
+    });
+    type FriendsView = InstanceType<typeof FriendsView>;
+    export default FriendsView;
 </script>

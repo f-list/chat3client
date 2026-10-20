@@ -17,7 +17,7 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
+    import {PropOptions} from 'vue';
     import CustomDialog from '../../components/custom_dialog';
     import FormGroupInputgroup from '../../components/form_group_inputgroup.vue';
     import Modal from '../../components/Modal.vue';
@@ -25,54 +25,58 @@
     import {methods} from './data_store';
     import {Character} from './interfaces';
 
-    @Component({
-        components: {'form-group-inputgroup': FormGroupInputgroup, modal: Modal}
-    })
-    export default class DuplicateDialog extends CustomDialog {
-        @Prop({required: true})
-        readonly character!: Character;
-
-        errors: {[key: string]: string} = {};
-        newName = '';
-        valid = false;
-
-        checking = false;
-        duplicating = false;
-
-        get name(): string {
-            return this.character.character.name;
-        }
-
-        async checkName(): Promise<boolean> {
-            try {
-                this.checking = true;
-                await methods.characterNameCheck(this.newName);
-                this.valid = true;
-                this.errors = {};
-                return true;
-            } catch(e) {
-                this.valid = false;
-                this.errors = {};
-                if(Utils.isJSONError(e))
-                    this.errors['name]'] = <string>e.response.data.error;
-                return false;
-            } finally {
-                this.checking = false;
+    const DuplicateDialog = CustomDialog.extend({
+        components: {'form-group-inputgroup': FormGroupInputgroup, modal: Modal},
+        props: {
+            character: {required: true} as PropOptions<Character>
+        },
+        data() {
+            return {
+                errors: {} as {[key: string]: string},
+                newName: '',
+                valid: false,
+                checking: false,
+                duplicating: false
+            };
+        },
+        computed: {
+            name(): string {
+                return this.character.character.name;
+            }
+        },
+        methods: {
+            async checkName(): Promise<boolean> {
+                try {
+                    this.checking = true;
+                    await methods.characterNameCheck(this.newName);
+                    this.valid = true;
+                    this.errors = {};
+                    return true;
+                } catch(e) {
+                    this.valid = false;
+                    this.errors = {};
+                    if(Utils.isJSONError(e))
+                        this.errors['name]'] = <string>e.response.data.error;
+                    return false;
+                } finally {
+                    this.checking = false;
+                }
+            },
+            async duplicate(): Promise<void> {
+                try {
+                    this.duplicating = true;
+                    await methods.characterDuplicate(this.character.character.id, this.newName);
+                    this.hide();
+                } catch(e) {
+                    Utils.ajaxError(e, 'Unable to duplicate character');
+                    this.valid = false;
+                    if(Utils.isJSONError(e))
+                        this.errors['name'] = <string>e.response.data.error;
+                }
+                this.duplicating = false;
             }
         }
-
-        async duplicate(): Promise<void> {
-            try {
-                this.duplicating = true;
-                await methods.characterDuplicate(this.character.character.id, this.newName);
-                this.hide();
-            } catch(e) {
-                Utils.ajaxError(e, 'Unable to duplicate character');
-                this.valid = false;
-                if(Utils.isJSONError(e))
-                    this.errors['name'] = <string>e.response.data.error;
-            }
-            this.duplicating = false;
-        }
-    }
+    });
+    type DuplicateDialog = InstanceType<typeof DuplicateDialog>;
+    export default DuplicateDialog;
 </script>

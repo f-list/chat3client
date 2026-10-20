@@ -33,8 +33,7 @@ import {InlineDisplayMode} from '../interfaces';
 </template>
 
 <script lang="ts">
-    import {Component, Hook, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import Modal from '../components/Modal.vue';
     import {InlineDisplayMode, SimpleCharacter} from '../interfaces';
     import {Keys} from '../keys';
@@ -73,25 +72,24 @@ import {InlineDisplayMode} from '../interfaces';
         return hide ? '' : str;
     }
 
-    @Component({
-        components: {chat: ChatView, modal: Modal, logs: Logs}
-    })
-    export default class Chat extends Vue {
-        @Prop({required: true})
-        readonly ownCharacters!: SimpleCharacter[];
-        @Prop({required: true})
-        readonly defaultCharacter!: number;
-        //tslint:disable-next-line:strict-boolean-expressions
-        selectedCharacter = this.ownCharacters.find((x) => x.id === this.defaultCharacter) || this.ownCharacters[0];
-        @Prop
-        readonly version?: string;
-        error = '';
-        connecting = false;
-        connected = false;
-        l = l;
-        copyPlain = false;
-
-        @Hook('mounted')
+    const Chat = Vue.extend({
+        components: {chat: ChatView, modal: Modal, logs: Logs},
+        props: {
+            ownCharacters: {required: true} as PropOptions<SimpleCharacter[]>,
+            defaultCharacter: {required: true} as PropOptions<number>,
+            version: {} as PropOptions<string | undefined>
+        },
+        data() {
+            return {
+                //tslint:disable-next-line:strict-boolean-expressions
+                selectedCharacter: this.ownCharacters.find((x) => x.id === this.defaultCharacter) || this.ownCharacters[0],
+                error: '',
+                connecting: false,
+                connected: false,
+                l: l,
+                copyPlain: false
+            };
+        },
         mounted(): void {
             document.title = l('title', core.connection.character);
             document.addEventListener('copy', ((e: ClipboardEvent) => {
@@ -153,21 +151,22 @@ import {InlineDisplayMode} from '../interfaces';
                     this.connecting = false;
                 } else throw e;
             });
+        },
+        methods: {
+            cancelReconnect(): void {
+                core.connection.close();
+                (<Modal>this.$refs['reconnecting']).hide();
+            },
+            showLogs(): void {
+                (<Logs>this.$refs['logsDialog']).show();
+            },
+            async connect(): Promise<void> {
+                this.connecting = true;
+                await core.notifications.initSounds(['attention', 'login', 'logout', 'modalert', 'newnote']);
+                core.connection.connect(this.selectedCharacter.name);
+            }
         }
-
-        cancelReconnect(): void {
-            core.connection.close();
-            (<Modal>this.$refs['reconnecting']).hide();
-        }
-
-        showLogs(): void {
-            (<Logs>this.$refs['logsDialog']).show();
-        }
-
-        async connect(): Promise<void> {
-            this.connecting = true;
-            await core.notifications.initSounds(['attention', 'login', 'logout', 'modalert', 'newnote']);
-            core.connection.connect(this.selectedCharacter.name);
-        }
-    }
+    });
+    type Chat = InstanceType<typeof Chat>;
+    export default Chat;
 </script>

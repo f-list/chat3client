@@ -27,73 +27,77 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop, Watch} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import * as Utils from '../utils';
     import {methods, Store} from './data_store';
     import {Character, GuestbookPost} from './interfaces';
 
     import GuestbookPostView from './guestbook_post.vue';
 
-    @Component({
-        components: {'guestbook-post': GuestbookPostView}
-    })
-    export default class GuestbookView extends Vue {
-        @Prop({required: true})
-        readonly character!: Character;
-        @Prop
-        readonly oldApi?: true;
-        loading = true;
-        error = '';
-        authenticated = Store.authenticated;
-        posts: GuestbookPost[] = [];
-        unapprovedOnly = false;
-        page = 1;
-        hasNextPage = false;
-        canEdit = false;
-        newPost = {
-            posting: false,
-            privatePost: false,
-            character: Utils.settings.defaultCharacter,
-            message: ''
-        };
-
-        @Watch('unapprovedOnly')
-        @Watch('page')
-        async getPage(): Promise<void> {
-            try {
-                this.loading = true;
-                const guestbook = await methods.guestbookPageGet(this.character.character.id, (this.page - 1) * 10, 10, this.unapprovedOnly);
-                this.posts = guestbook.posts;
-                this.hasNextPage = (this.page + 1) * 10 < guestbook.total;
-            } catch(e) {
-                this.posts = [];
-                this.hasNextPage = false;
-                this.canEdit = false;
-                if(Utils.isJSONError(e))
-                    this.error = <string>e.response.data.error;
-                Utils.ajaxError(e, 'Unable to load guestbook posts.');
-            } finally {
-                this.loading = false;
+    const GuestbookView = Vue.extend({
+        components: {'guestbook-post': GuestbookPostView},
+        props: {
+            character: {required: true} as PropOptions<Character>,
+            oldApi: {} as PropOptions<true | undefined>
+        },
+        data() {
+            return {
+                loading: true,
+                error: '',
+                authenticated: Store.authenticated,
+                posts: [] as GuestbookPost[],
+                unapprovedOnly: false,
+                page: 1,
+                hasNextPage: false,
+                canEdit: false,
+                newPost: {
+                    posting: false,
+                    privatePost: false,
+                    character: Utils.settings.defaultCharacter,
+                    message: ''
+                }
+            };
+        },
+        watch: {
+            unapprovedOnly: 'getPage',
+            page: 'getPage'
+        },
+        methods: {
+            async getPage(): Promise<void> {
+                try {
+                    this.loading = true;
+                    const guestbook = await methods.guestbookPageGet(this.character.character.id, (this.page - 1) * 10, 10, this.unapprovedOnly);
+                    this.posts = guestbook.posts;
+                    this.hasNextPage = (this.page + 1) * 10 < guestbook.total;
+                } catch(e) {
+                    this.posts = [];
+                    this.hasNextPage = false;
+                    this.canEdit = false;
+                    if(Utils.isJSONError(e))
+                        this.error = <string>e.response.data.error;
+                    Utils.ajaxError(e, 'Unable to load guestbook posts.');
+                } finally {
+                    this.loading = false;
+                }
+            },
+            async makePost(): Promise<void> {
+                try {
+                    this.newPost.posting = true;
+                    await methods.guestbookPostPost(this.character.character.id, this.newPost.character, this.newPost.message,
+                        this.newPost.privatePost);
+                    this.page = 1;
+                    await this.getPage();
+                } catch(e) {
+                    Utils.ajaxError(e, 'Unable to post new guestbook post.');
+                } finally {
+                    this.newPost.posting = false;
+                }
+            },
+            async show(): Promise<void> {
+                return this.getPage();
             }
         }
-
-        async makePost(): Promise<void> {
-            try {
-                this.newPost.posting = true;
-                await methods.guestbookPostPost(this.character.character.id, this.newPost.character, this.newPost.message,
-                    this.newPost.privatePost);
-                this.page = 1;
-                await this.getPage();
-            } catch(e) {
-                Utils.ajaxError(e, 'Unable to post new guestbook post.');
-            } finally {
-                this.newPost.posting = false;
-            }
-        }
-
-        async show(): Promise<void> {
-            return this.getPage();
-        }
-    }
+    });
+    type GuestbookView = InstanceType<typeof GuestbookView>;
+    export default GuestbookView;
 </script>

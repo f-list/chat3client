@@ -2,6 +2,11 @@ import {isToday} from 'date-fns';
 import {Keys} from '../keys';
 import {Character, Conversation, Settings as ISettings} from './interfaces';
 
+// * For component data that is assigned before use (formerly `field!: T` on class components).
+export function unset<T>(this: void | never): T {
+    return undefined as unknown as T;
+}
+
 export function profileLink(this: void | never, character: string): string {
     return `https://www.f-list.net/c/${character}`;
 }

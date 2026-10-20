@@ -126,15 +126,14 @@
 </template>
 
 <script lang="ts">
-    import {Component, Hook, Prop, Watch} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {EditorButton, EditorSelection} from '../bbcode/editor';
     import {BBCodeView} from '../bbcode/view';
     import {isShowing as anyDialogsShown} from '../components/Modal.vue';
     import {Keys} from '../keys';
     import {Editor} from './bbcode';
     import CommandHelp from './CommandHelp.vue';
-    import {characterImage, getByteLength, getKey} from './common';
+    import {characterImage, getByteLength, getKey, unset} from './common';
     import ConversationSettings from './ConversationSettings.vue';
     import core from './core';
     import {Channel, channelModes, Character, Conversation, Settings} from './interfaces';
@@ -146,42 +145,75 @@
     import {isCommand} from './slash_commands';
     import UserView from './user_view';
 
-    @Component({
+    const ConversationView = Vue.extend({
         components: {
             user: UserView, 'bbcode-editor': Editor, 'manage-channel': ManageChannel, settings: ConversationSettings,
             logs: Logs, 'message-view': MessageView, bbcode: BBCodeView(core.bbCodeParser), 'command-help': CommandHelp
-        }
-    })
-    export default class ConversationView extends Vue {
-        @Prop({required: true})
-        readonly reportDialog!: ReportDialog;
-        modes = channelModes;
-        descriptionExpanded = false;
-        l = l;
-        extraButtons: EditorButton[] = [];
-        getByteLength = getByteLength;
-        tabOptions: string[] | undefined;
-        tabOptionsIndex!: number;
-        tabOptionSelection!: EditorSelection;
-        showSearch = false;
-        searchInput = '';
-        search = '';
-        lastSearchInput = 0;
-        messageCount = 0;
-        searchTimer = 0;
-        messageView!: HTMLElement;
-        resizeHandler!: EventListener;
-        keydownHandler!: EventListener;
-        keypressHandler!: EventListener;
-        scrolledDown = true;
-        scrolledUp = false;
-        ignoreScroll = false;
-        adCountdown = 0;
-        adsMode = l('channel.mode.ads');
-        isChannel = Conversation.isChannel;
-        isPrivate = Conversation.isPrivate;
-
-        @Hook('mounted')
+        },
+        props: {
+            reportDialog: {required: true} as PropOptions<ReportDialog>
+        },
+        data() {
+            return {
+                modes: channelModes,
+                descriptionExpanded: false,
+                l: l,
+                extraButtons: [] as EditorButton[],
+                getByteLength: getByteLength,
+                tabOptions: undefined as string[] | undefined,
+                tabOptionsIndex: unset<number>(),
+                tabOptionSelection: unset<EditorSelection>(),
+                showSearch: false,
+                searchInput: '',
+                search: '',
+                lastSearchInput: 0,
+                messageCount: 0,
+                searchTimer: 0,
+                messageView: unset<HTMLElement>(),
+                resizeHandler: unset<EventListener>(),
+                keydownHandler: unset<EventListener>(),
+                keypressHandler: unset<EventListener>(),
+                scrolledDown: true,
+                scrolledUp: false,
+                ignoreScroll: false,
+                adCountdown: 0,
+                adsMode: l('channel.mode.ads'),
+                isChannel: Conversation.isChannel,
+                isPrivate: Conversation.isPrivate
+            };
+        },
+        computed: {
+            conversation(): Conversation {
+                return core.conversations.selectedConversation;
+            },
+            messages(): ReadonlyArray<Conversation.Message | Conversation.SFCMessage> {
+                if(this.search === '') return this.conversation.messages;
+                const filter = new RegExp(this.search.replace(/[^\w]/gi, '\\$&'), 'i');
+                return this.conversation.messages.filter((x) => filter.test(x.text));
+            },
+            characterImage(): string {
+                return characterImage(this.conversation.name);
+            },
+            settings(): Settings {
+                return core.state.settings;
+            },
+            isConsoleTab(): boolean {
+                return this.conversation === core.conversations.consoleTab;
+            },
+            isChannelMod(): boolean {
+                if(core.characters.ownCharacter.isChatOp) return true;
+                const conv = (<Conversation.ChannelConversation>this.conversation);
+                const member = conv.channel.members[core.connection.character];
+                return member !== undefined && member.rank > Channel.Rank.Member;
+            }
+        },
+        watch: {
+            conversation: 'conversationChanged',
+            'conversation.messages': 'messageAdded',
+            'conversation.errorText': 'textChanged',
+            'conversation.infoText': 'textChanged',
+            'conversation.typingStatus': 'typingStatusChanged'
+        },
         mounted(): void {
             this.extraButtons = [{
                 title: 'Help\n\nClick this button for a quick overview of slash commands.',
@@ -220,192 +252,144 @@
                     this.adCountdown = window.setInterval(setAdCountdown, 1000);
                 setAdCountdown();
             });
-        }
-
-        @Hook('destroyed')
+        },
         destroyed(): void {
             window.removeEventListener('resize', this.resizeHandler);
             window.removeEventListener('keydown', this.keydownHandler);
             window.removeEventListener('keypress', this.keypressHandler);
             clearInterval(this.searchTimer);
-        }
-
-        hideSearch(): void {
-            this.showSearch = false;
-            this.searchInput = '';
-        }
-
-        get conversation(): Conversation {
-            return core.conversations.selectedConversation;
-        }
-
-        get messages(): ReadonlyArray<Conversation.Message | Conversation.SFCMessage> {
-            if(this.search === '') return this.conversation.messages;
-            const filter = new RegExp(this.search.replace(/[^\w]/gi, '\\$&'), 'i');
-            return this.conversation.messages.filter((x) => filter.test(x.text));
-        }
-
-        async sendButton(): Promise<void> {
-            return this.conversation.send();
-        }
-
-        @Watch('conversation')
-        conversationChanged(): void {
-            if(!anyDialogsShown) (<Editor>this.$refs['textBox']).focus();
-            this.$nextTick(() => setTimeout(() => this.messageView.scrollTop = this.messageView.scrollHeight));
-            this.scrolledDown = true;
-        }
-
-        @Watch('conversation.messages')
-        messageAdded(newValue: Conversation.Message[]): void {
-            this.keepScroll();
-            if(!this.scrolledDown && newValue.length === this.messageCount)
-                this.messageView.scrollTop -= (this.messageView.firstElementChild!).clientHeight;
-            this.messageCount = newValue.length;
-        }
-
-        keepScroll(): void {
-            if(this.scrolledDown) {
-                this.ignoreScroll = true;
-                this.$nextTick(() => setTimeout(() => {
+        },
+        methods: {
+            hideSearch(): void {
+                this.showSearch = false;
+                this.searchInput = '';
+            },
+            async sendButton(): Promise<void> {
+                return this.conversation.send();
+            },
+            conversationChanged(): void {
+                if(!anyDialogsShown) (<Editor>this.$refs['textBox']).focus();
+                this.$nextTick(() => setTimeout(() => this.messageView.scrollTop = this.messageView.scrollHeight));
+                this.scrolledDown = true;
+            },
+            messageAdded(newValue: Conversation.Message[]): void {
+                this.keepScroll();
+                if(!this.scrolledDown && newValue.length === this.messageCount)
+                    this.messageView.scrollTop -= (this.messageView.firstElementChild!).clientHeight;
+                this.messageCount = newValue.length;
+            },
+            keepScroll(): void {
+                if(this.scrolledDown) {
                     this.ignoreScroll = true;
-                    this.messageView.scrollTop = this.messageView.scrollHeight;
-                }, 0));
-            }
-        }
-
-        onMessagesScroll(): void {
-            if(this.ignoreScroll) {
-                this.ignoreScroll = false;
-                return;
-            }
-            if(this.messageView.scrollTop < 20) {
-                if(!this.scrolledUp) {
-                    const firstMessage = this.messageView.firstElementChild;
-                    if(this.conversation.loadMore() && firstMessage !== null) {
-                        this.messageView.style.overflow = 'hidden';
-                        this.$nextTick(() => {
-                            this.messageView.scrollTop = (<HTMLElement>firstMessage).offsetTop;
-                            this.messageView.style.overflow = 'auto';
-                        });
+                    this.$nextTick(() => setTimeout(() => {
+                        this.ignoreScroll = true;
+                        this.messageView.scrollTop = this.messageView.scrollHeight;
+                    }, 0));
+                }
+            },
+            onMessagesScroll(): void {
+                if(this.ignoreScroll) {
+                    this.ignoreScroll = false;
+                    return;
+                }
+                if(this.messageView.scrollTop < 20) {
+                    if(!this.scrolledUp) {
+                        const firstMessage = this.messageView.firstElementChild;
+                        if(this.conversation.loadMore() && firstMessage !== null) {
+                            this.messageView.style.overflow = 'hidden';
+                            this.$nextTick(() => {
+                                this.messageView.scrollTop = (<HTMLElement>firstMessage).offsetTop;
+                                this.messageView.style.overflow = 'auto';
+                            });
+                        }
                     }
-                }
-                this.scrolledUp = true;
-            } else this.scrolledUp = false;
-            this.scrolledDown = this.messageView.scrollTop + this.messageView.offsetHeight >= this.messageView.scrollHeight - 15;
-        }
-
-        @Watch('conversation.errorText')
-        @Watch('conversation.infoText')
-        textChanged(newValue: string, oldValue: string): void {
-            if(oldValue.length === 0 && newValue.length > 0) this.keepScroll();
-        }
-
-        @Watch('conversation.typingStatus')
-        typingStatusChanged(_: string, oldValue: string): void {
-            if(oldValue === 'clear') this.keepScroll();
-        }
-
-        async onKeyDown(e: KeyboardEvent): Promise<void> {
-            const editor = <Editor>this.$refs['textBox'];
-            if(getKey(e) === Keys.Tab) {
-                if(e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
-                e.preventDefault();
-                if(this.conversation.enteredText.length === 0 || this.isConsoleTab) return;
-                if(this.tabOptions === undefined) {
-                    const selection = editor.getSelection();
-                    if(selection.text.length === 0) {
-                        const match = /\b[\w]+$/.exec(editor.text.substring(0, selection.end));
-                        if(match === null) return;
-                        selection.start = match.index < 0 ? 0 : match.index;
-                        selection.text = editor.text.substring(selection.start, selection.end);
-                        if(selection.text.length === 0) return;
-                    }
-                    const search = new RegExp(`^${selection.text.replace(/[^\w]/gi, '\\$&')}`, 'i');
-                    const c = (<Conversation.PrivateConversation>this.conversation);
-                    let options: ReadonlyArray<{character: Character}>;
-                    options = Conversation.isChannel(this.conversation) ? this.conversation.channel.sortedMembers :
-                        [{character: c.character}, {character: core.characters.ownCharacter}];
-                    this.tabOptions = options.filter((x) => search.test(x.character.name)).map((x) => x.character.name);
-                    this.tabOptionsIndex = 0;
-                    this.tabOptionSelection = selection;
-                }
-                if(this.tabOptions.length > 0) {
-                    const selection = editor.getSelection();
-                    if(selection.end !== this.tabOptionSelection.end) return;
-                    if(this.tabOptionsIndex >= this.tabOptions.length) this.tabOptionsIndex = 0;
-                    const name = this.tabOptions[this.tabOptionsIndex];
-                    const userName = (isCommand(this.conversation.enteredText) ? name : `[user]${name}[/user]`);
-                    this.tabOptionSelection.end = this.tabOptionSelection.start + userName.length;
-                    this.conversation.enteredText = this.conversation.enteredText.substr(0, this.tabOptionSelection.start) + userName +
-                        this.conversation.enteredText.substr(selection.end);
-                    ++this.tabOptionsIndex;
-                }
-            } else {
-                if(this.tabOptions !== undefined) this.tabOptions = undefined;
-                if(getKey(e) === Keys.ArrowUp && this.conversation.enteredText.length === 0
-                    && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey)
-                    this.conversation.loadLastSent();
-                else if(getKey(e) === Keys.Enter) {
-                    if(e.shiftKey === this.settings.enterSend) return;
+                    this.scrolledUp = true;
+                } else this.scrolledUp = false;
+                this.scrolledDown = this.messageView.scrollTop + this.messageView.offsetHeight >= this.messageView.scrollHeight - 15;
+            },
+            textChanged(newValue: string, oldValue: string): void {
+                if(oldValue.length === 0 && newValue.length > 0) this.keepScroll();
+            },
+            typingStatusChanged(_: string, oldValue: string): void {
+                if(oldValue === 'clear') this.keepScroll();
+            },
+            async onKeyDown(e: KeyboardEvent): Promise<void> {
+                const editor = <Editor>this.$refs['textBox'];
+                if(getKey(e) === Keys.Tab) {
+                    if(e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
                     e.preventDefault();
-                    await this.conversation.send();
+                    if(this.conversation.enteredText.length === 0 || this.isConsoleTab) return;
+                    if(this.tabOptions === undefined) {
+                        const selection = editor.getSelection();
+                        if(selection.text.length === 0) {
+                            const match = /\b[\w]+$/.exec(editor.text.substring(0, selection.end));
+                            if(match === null) return;
+                            selection.start = match.index < 0 ? 0 : match.index;
+                            selection.text = editor.text.substring(selection.start, selection.end);
+                            if(selection.text.length === 0) return;
+                        }
+                        const search = new RegExp(`^${selection.text.replace(/[^\w]/gi, '\\$&')}`, 'i');
+                        const c = (<Conversation.PrivateConversation>this.conversation);
+                        let options: ReadonlyArray<{character: Character}>;
+                        options = Conversation.isChannel(this.conversation) ? this.conversation.channel.sortedMembers :
+                            [{character: c.character}, {character: core.characters.ownCharacter}];
+                        this.tabOptions = options.filter((x) => search.test(x.character.name)).map((x) => x.character.name);
+                        this.tabOptionsIndex = 0;
+                        this.tabOptionSelection = selection;
+                    }
+                    if(this.tabOptions.length > 0) {
+                        const selection = editor.getSelection();
+                        if(selection.end !== this.tabOptionSelection.end) return;
+                        if(this.tabOptionsIndex >= this.tabOptions.length) this.tabOptionsIndex = 0;
+                        const name = this.tabOptions[this.tabOptionsIndex];
+                        const userName = (isCommand(this.conversation.enteredText) ? name : `[user]${name}[/user]`);
+                        this.tabOptionSelection.end = this.tabOptionSelection.start + userName.length;
+                        this.conversation.enteredText = this.conversation.enteredText.substr(0, this.tabOptionSelection.start) + userName +
+                            this.conversation.enteredText.substr(selection.end);
+                        ++this.tabOptionsIndex;
+                    }
+                } else {
+                    if(this.tabOptions !== undefined) this.tabOptions = undefined;
+                    if(getKey(e) === Keys.ArrowUp && this.conversation.enteredText.length === 0
+                        && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey)
+                        this.conversation.loadLastSent();
+                    else if(getKey(e) === Keys.Enter) {
+                        if(e.shiftKey === this.settings.enterSend) return;
+                        e.preventDefault();
+                        await this.conversation.send();
+                    }
                 }
+            },
+            setMode(mode: Channel.Mode): void {
+                const conv = (<Conversation.ChannelConversation>this.conversation);
+                if(conv.channel.mode === 'both') conv.mode = mode;
+            },
+            acceptReport(sfc: {callid: number}): void {
+                core.connection.send('SFC', {action: 'confirm', callid: sfc.callid});
+            },
+            setSendingAds(is: boolean): void {
+                const conv = (<Conversation.ChannelConversation>this.conversation);
+                if(conv.channel.mode === 'both') {
+                    conv.isSendingAds = is;
+                    (<Editor>this.$refs['textBox']).focus();
+                }
+            },
+            showLogs(): void {
+                (<Logs>this.$refs['logsDialog']).show();
+            },
+            showSettings(): void {
+                (<ConversationSettings>this.$refs['settingsDialog']).show();
+            },
+            showManage(): void {
+                (<ManageChannel>this.$refs['manageDialog']).show();
+            },
+            hasSFC(message: Conversation.Message): message is Conversation.SFCMessage {
+                return (<Partial<Conversation.SFCMessage>>message).sfc !== undefined;
             }
         }
-
-        setMode(mode: Channel.Mode): void {
-            const conv = (<Conversation.ChannelConversation>this.conversation);
-            if(conv.channel.mode === 'both') conv.mode = mode;
-        }
-
-        acceptReport(sfc: {callid: number}): void {
-            core.connection.send('SFC', {action: 'confirm', callid: sfc.callid});
-        }
-
-        setSendingAds(is: boolean): void {
-            const conv = (<Conversation.ChannelConversation>this.conversation);
-            if(conv.channel.mode === 'both') {
-                conv.isSendingAds = is;
-                (<Editor>this.$refs['textBox']).focus();
-            }
-        }
-
-        showLogs(): void {
-            (<Logs>this.$refs['logsDialog']).show();
-        }
-
-        showSettings(): void {
-            (<ConversationSettings>this.$refs['settingsDialog']).show();
-        }
-
-        showManage(): void {
-            (<ManageChannel>this.$refs['manageDialog']).show();
-        }
-
-        hasSFC(message: Conversation.Message): message is Conversation.SFCMessage {
-            return (<Partial<Conversation.SFCMessage>>message).sfc !== undefined;
-        }
-
-        get characterImage(): string {
-            return characterImage(this.conversation.name);
-        }
-
-        get settings(): Settings {
-            return core.state.settings;
-        }
-
-        get isConsoleTab(): boolean {
-            return this.conversation === core.conversations.consoleTab;
-        }
-
-        get isChannelMod(): boolean {
-            if(core.characters.ownCharacter.isChatOp) return true;
-            const conv = (<Conversation.ChannelConversation>this.conversation);
-            const member = conv.channel.members[core.connection.character];
-            return member !== undefined && member.rank > Channel.Rank.Member;
-        }
-    }
+    });
+    type ConversationView = InstanceType<typeof ConversationView>;
+    export default ConversationView;
 </script>
 
 <style lang="scss">

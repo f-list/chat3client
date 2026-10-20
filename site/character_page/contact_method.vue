@@ -12,29 +12,28 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {CharacterInfotag, Infotag} from '../../interfaces';
     import {formatContactLink, formatContactValue} from './contact_utils';
     import {methods} from './data_store';
 
-    @Component
-    export default class ContactMethodView extends Vue {
-        @Prop({required: true})
-        readonly infotag!: Infotag;
-        @Prop({required: true})
-        readonly data!: CharacterInfotag;
-
-        get iconUrl(): string {
-            return methods.contactMethodIconUrl(this.infotag.name);
+    const ContactMethodView = Vue.extend({
+        props: {
+            infotag: {required: true} as PropOptions<Infotag>,
+            data: {required: true} as PropOptions<CharacterInfotag>
+        },
+        computed: {
+            iconUrl(): string {
+                return methods.contactMethodIconUrl(this.infotag.name);
+            },
+            value(): string {
+                return formatContactValue(this.infotag, this.data.string!);
+            },
+            contactLink(): string | undefined {
+                return formatContactLink(this.infotag, this.data.string!);
+            }
         }
-
-        get value(): string {
-            return formatContactValue(this.infotag, this.data.string!);
-        }
-
-        get contactLink(): string | undefined {
-            return formatContactLink(this.infotag, this.data.string!);
-        }
-    }
+    });
+    type ContactMethodView = InstanceType<typeof ContactMethodView>;
+    export default ContactMethodView;
 </script>

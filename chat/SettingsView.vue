@@ -138,113 +138,117 @@
 </template>
 
 <script lang="ts">
-    import {Component} from '@f-list/vue-ts';
     import CustomDialog from '../components/custom_dialog';
     import Modal from '../components/Modal.vue';
     import Tabs from '../components/tabs';
+    import {unset} from './common';
     import core from './core';
     import {Settings as SettingsInterface} from './interfaces';
     import l from './localize';
 
-    @Component({
-        components: {modal: Modal, tabs: Tabs}
-    })
-    export default class SettingsView extends CustomDialog {
-        l = l;
-        availableImports: ReadonlyArray<string> = [];
-        selectedTab = '0';
-        importCharacter = '';
-        playSound!: boolean;
-        clickOpensMessage!: boolean;
-        disallowedTags!: string;
-        notifications!: boolean;
-        highlight!: boolean;
-        highlightWords!: string;
-        showAvatars!: boolean;
-        animatedEicons!: boolean;
-        idleTimer!: string;
-        messageSeparators!: boolean;
-        eventMessages!: boolean;
-        joinMessages!: boolean;
-        alwaysNotify!: boolean;
-        logMessages!: boolean;
-        logAds!: boolean;
-        fontSize!: string;
-        showNeedsReply!: boolean;
-        enterSend!: boolean;
-        colorBookmarks!: boolean;
-        bbCodeBar!: boolean;
-
-        async load(): Promise<void> {
-            const settings = core.state.settings;
-            this.playSound = settings.playSound;
-            this.clickOpensMessage = settings.clickOpensMessage;
-            this.disallowedTags = settings.disallowedTags.join(',');
-            this.notifications = settings.notifications;
-            this.highlight = settings.highlight;
-            this.highlightWords = settings.highlightWords.join(',');
-            this.showAvatars = settings.showAvatars;
-            this.animatedEicons = settings.animatedEicons;
-            this.idleTimer = settings.idleTimer.toString();
-            this.messageSeparators = settings.messageSeparators;
-            this.eventMessages = settings.eventMessages;
-            this.joinMessages = settings.joinMessages;
-            this.alwaysNotify = settings.alwaysNotify;
-            this.logMessages = settings.logMessages;
-            this.logAds = settings.logAds;
-            this.fontSize = settings.fontSize.toString();
-            this.showNeedsReply = settings.showNeedsReply;
-            this.enterSend = settings.enterSend;
-            this.colorBookmarks = settings.colorBookmarks;
-            this.bbCodeBar = settings.bbCodeBar;
-            this.availableImports = (await core.settingsStore.getAvailableCharacters()).filter((x) => x !== core.connection.character);
-        }
-
-        async doImport(): Promise<void> {
-            if(!confirm(l('settings.import.confirm', this.importCharacter, core.connection.character))) return;
-            const importKey = async(key: keyof SettingsInterface.Keys) => {
-                const settings = await core.settingsStore.get(key, this.importCharacter);
-                if(settings !== undefined) await core.settingsStore.set(key, settings);
+    const SettingsView = CustomDialog.extend({
+        components: {modal: Modal, tabs: Tabs},
+        data() {
+            return {
+                l: l,
+                availableImports: [] as ReadonlyArray<string>,
+                selectedTab: '0',
+                importCharacter: '',
+                playSound: unset<boolean>(),
+                clickOpensMessage: unset<boolean>(),
+                disallowedTags: unset<string>(),
+                notifications: unset<boolean>(),
+                highlight: unset<boolean>(),
+                highlightWords: unset<string>(),
+                showAvatars: unset<boolean>(),
+                animatedEicons: unset<boolean>(),
+                idleTimer: unset<string>(),
+                messageSeparators: unset<boolean>(),
+                eventMessages: unset<boolean>(),
+                joinMessages: unset<boolean>(),
+                alwaysNotify: unset<boolean>(),
+                logMessages: unset<boolean>(),
+                logAds: unset<boolean>(),
+                fontSize: unset<string>(),
+                showNeedsReply: unset<boolean>(),
+                enterSend: unset<boolean>(),
+                colorBookmarks: unset<boolean>(),
+                bbCodeBar: unset<boolean>()
             };
-            await importKey('settings');
-            await importKey('pinned');
-            await importKey('modes');
-            await importKey('conversationSettings');
-            core.connection.close(false);
+        },
+        computed: {
+            hidden(): string[] {
+                return core.state.hiddenUsers;
+            }
+        },
+        methods: {
+            async load(): Promise<void> {
+                const settings = core.state.settings;
+                this.playSound = settings.playSound;
+                this.clickOpensMessage = settings.clickOpensMessage;
+                this.disallowedTags = settings.disallowedTags.join(',');
+                this.notifications = settings.notifications;
+                this.highlight = settings.highlight;
+                this.highlightWords = settings.highlightWords.join(',');
+                this.showAvatars = settings.showAvatars;
+                this.animatedEicons = settings.animatedEicons;
+                this.idleTimer = settings.idleTimer.toString();
+                this.messageSeparators = settings.messageSeparators;
+                this.eventMessages = settings.eventMessages;
+                this.joinMessages = settings.joinMessages;
+                this.alwaysNotify = settings.alwaysNotify;
+                this.logMessages = settings.logMessages;
+                this.logAds = settings.logAds;
+                this.fontSize = settings.fontSize.toString();
+                this.showNeedsReply = settings.showNeedsReply;
+                this.enterSend = settings.enterSend;
+                this.colorBookmarks = settings.colorBookmarks;
+                this.bbCodeBar = settings.bbCodeBar;
+                this.availableImports = (await core.settingsStore.getAvailableCharacters()).filter((x) => x !== core.connection.character);
+            },
+            async doImport(): Promise<void> {
+                if(!confirm(l('settings.import.confirm', this.importCharacter, core.connection.character))) return;
+                const importKey = async(key: keyof SettingsInterface.Keys) => {
+                    const settings = await core.settingsStore.get(key, this.importCharacter);
+                    if(settings !== undefined) await core.settingsStore.set(key, settings);
+                };
+                await importKey('settings');
+                await importKey('pinned');
+                await importKey('modes');
+                await importKey('conversationSettings');
+                core.connection.close(false);
+            },
+            async submit(): Promise<void> {
+                const idleTimer = parseInt(this.idleTimer, 10);
+                const fontSize = parseFloat(this.fontSize);
+                core.state.settings = {
+                    playSound: this.playSound,
+                    clickOpensMessage: this.clickOpensMessage,
+                    disallowedTags: this.disallowedTags.split(',').map((x) => x.trim()).filter((x) => x.length),
+                    notifications: this.notifications,
+                    highlight: this.highlight,
+                    highlightWords: this.highlightWords.split(',').map((x) => x.trim()).filter((x) => x.length),
+                    showAvatars: this.showAvatars,
+                    animatedEicons: this.animatedEicons,
+                    idleTimer: isNaN(idleTimer) ? 0 : idleTimer < 0 ? 0 : idleTimer > 1440 ? 1440 : idleTimer,
+                    messageSeparators: this.messageSeparators,
+                    eventMessages: this.eventMessages,
+                    joinMessages: this.joinMessages,
+                    alwaysNotify: this.alwaysNotify,
+                    logMessages: this.logMessages,
+                    logAds: this.logAds,
+                    fontSize: isNaN(fontSize) ? 14 : fontSize < 10 ? 10 : fontSize > 24 ? 24 : fontSize,
+                    showNeedsReply: this.showNeedsReply,
+                    enterSend: this.enterSend,
+                    colorBookmarks: this.colorBookmarks,
+                    bbCodeBar: this.bbCodeBar
+                };
+                if(this.notifications) await core.notifications.requestPermission();
+            }
         }
-
-        get hidden(): string[] {
-            return core.state.hiddenUsers;
-        }
-
-        async submit(): Promise<void> {
-            const idleTimer = parseInt(this.idleTimer, 10);
-            const fontSize = parseFloat(this.fontSize);
-            core.state.settings = {
-                playSound: this.playSound,
-                clickOpensMessage: this.clickOpensMessage,
-                disallowedTags: this.disallowedTags.split(',').map((x) => x.trim()).filter((x) => x.length),
-                notifications: this.notifications,
-                highlight: this.highlight,
-                highlightWords: this.highlightWords.split(',').map((x) => x.trim()).filter((x) => x.length),
-                showAvatars: this.showAvatars,
-                animatedEicons: this.animatedEicons,
-                idleTimer: isNaN(idleTimer) ? 0 : idleTimer < 0 ? 0 : idleTimer > 1440 ? 1440 : idleTimer,
-                messageSeparators: this.messageSeparators,
-                eventMessages: this.eventMessages,
-                joinMessages: this.joinMessages,
-                alwaysNotify: this.alwaysNotify,
-                logMessages: this.logMessages,
-                logAds: this.logAds,
-                fontSize: isNaN(fontSize) ? 14 : fontSize < 10 ? 10 : fontSize > 24 ? 24 : fontSize,
-                showNeedsReply: this.showNeedsReply,
-                enterSend: this.enterSend,
-                colorBookmarks: this.colorBookmarks,
-                bbCodeBar: this.bbCodeBar
-            };
-            if(this.notifications) await core.notifications.requestPermission();
-        }
-    }
+    });
+    type SettingsView = InstanceType<typeof SettingsView>;
+    export default SettingsView;
 </script>
 
 <style>

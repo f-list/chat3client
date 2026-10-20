@@ -1,5 +1,4 @@
-import {Component, Prop} from '@f-list/vue-ts';
-import {CreateElement, default as Vue, VNode, VNodeChildrenArrayContents} from 'vue';
+import {CreateElement, default as Vue, PropOptions, VNode, VNodeChildrenArrayContents} from 'vue';
 import {BBCodeView} from '../bbcode/view';
 import {Channel} from '../fchat';
 import {formatTime} from './common';
@@ -12,8 +11,8 @@ const userPostfix: {[key: number]: string | undefined} = {
     [Conversation.Message.Type.Ad]: ': ',
     [Conversation.Message.Type.Action]: ''
 };
-@Component({
-    render(this: MessageView, createElement: CreateElement): VNode {
+const MessageView = Vue.extend({
+    render(createElement: CreateElement): VNode {
         const message = this.message;
         const children: VNodeChildrenArrayContents =
             [createElement('span', {staticClass: 'message-time'}, `[${formatTime(message.time)}] `)];
@@ -44,15 +43,13 @@ const userPostfix: {[key: number]: string | undefined} = {
         const node = createElement('div', {attrs: {class: classes}}, children);
         node.key = message.id;
         return node;
+    },
+    props: {
+        message: {required: true} as PropOptions<Conversation.Message>,
+        classes: {} as PropOptions<string | undefined>,
+        channel: {} as PropOptions<Channel | undefined>,
+        logs: {} as PropOptions<true | undefined>
     }
-})
-export default class MessageView extends Vue {
-    @Prop({required: true})
-    readonly message!: Conversation.Message;
-    @Prop
-    readonly classes?: string;
-    @Prop
-    readonly channel?: Channel;
-    @Prop
-    readonly logs?: true;
-}
+});
+type MessageView = InstanceType<typeof MessageView>;
+export default MessageView;

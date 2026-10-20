@@ -95,14 +95,13 @@
 </template>
 
 <script lang="ts">
-    import {Component, Hook} from '@f-list/vue-ts';
     //tslint:disable-next-line:no-require-imports
     import Sortable = require('sortablejs');
     import Vue from 'vue';
     import {Keys} from '../keys';
     import ChannelList from './ChannelList.vue';
     import CharacterSearch from './CharacterSearch.vue';
-    import {characterImage, getKey, profileLink} from './common';
+    import {characterImage, getKey, profileLink, unset} from './common';
     import ConversationView from './ConversationView.vue';
     import core from './core';
     import {Character, Connection, Conversation} from './interfaces';
@@ -122,24 +121,35 @@
         [Conversation.UnreadState.Unread]: 'list-group-item-danger'
     };
 
-    @Component({
+    const ChatView = Vue.extend({
         components: {
             'user-list': UserList, channels: ChannelList, 'status-switcher': StatusSwitcher, 'character-search': CharacterSearch,
             settings: SettingsView, conversation: ConversationView, 'report-dialog': ReportDialog, sidebar: Sidebar,
             'user-menu': UserMenu, 'recent-conversations': RecentConversations
-        }
-    })
-    export default class ChatView extends Vue {
-        l = l;
-        sidebarExpanded = false;
-        characterImage = characterImage;
-        conversations = core.conversations;
-        getStatusIcon = getStatusIcon;
-        keydownListener!: (e: KeyboardEvent) => void;
-        focusListener!: () => void;
-        blurListener!: () => void;
-
-        @Hook('mounted')
+        },
+        data() {
+            return {
+                l: l,
+                sidebarExpanded: false,
+                characterImage: characterImage,
+                conversations: core.conversations,
+                getStatusIcon: getStatusIcon,
+                keydownListener: unset<(e: KeyboardEvent) => void>(),
+                focusListener: unset<() => void>(),
+                blurListener: unset<() => void>()
+            };
+        },
+        computed: {
+            showAvatars(): boolean {
+                return core.state.settings.showAvatars;
+            },
+            ownCharacter(): Character {
+                return core.characters.ownCharacter;
+            },
+            ownCharacterLink(): string {
+                return profileLink(core.characters.ownCharacter.name);
+            }
+        },
         mounted(): void {
             this.keydownListener = (e: KeyboardEvent) => this.onKeyDown(e);
             window.addEventListener('keydown', this.keydownListener);
@@ -196,117 +206,96 @@
             }, (value) => {
                 this.setFontSize(value);
             });
-        }
-
-        @Hook('destroyed')
+        },
         destroyed(): void {
             window.removeEventListener('keydown', this.keydownListener);
             window.removeEventListener('focus', this.focusListener);
             window.removeEventListener('blur', this.blurListener);
-        }
-
-        needsReply(conversation: Conversation): boolean {
-            if(!core.state.settings.showNeedsReply) return false;
-            for(let i = conversation.messages.length - 1; i >= 0; --i) {
-                const sender = (<Partial<Conversation.ChatMessage>>conversation.messages[i]).sender;
-                if(sender !== undefined)
-                    return sender !== core.characters.ownCharacter;
-            }
-            return false;
-        }
-
-        onKeyDown(e: KeyboardEvent): void {
-            const selected = this.conversations.selectedConversation;
-            const pms = this.conversations.privateConversations;
-            const channels = this.conversations.channelConversations;
-            const console = this.conversations.consoleTab;
-            if(getKey(e) === Keys.ArrowUp && e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey)
-                if(selected === console) { //tslint:disable-line:curly
-                    if(channels.length > 0) channels[channels.length - 1].show();
-                    else if(pms.length > 0) pms[pms.length - 1].show();
-                } else if(Conversation.isPrivate(selected)) {
-                    const index = pms.indexOf(selected);
-                    if(index === 0) console.show();
-                    else pms[index - 1].show();
-                } else {
-                    const index = channels.indexOf(<Conversation.ChannelConversation>selected);
-                    if(index === 0)
-                        if(pms.length > 0) pms[pms.length - 1].show();
+        },
+        methods: {
+            needsReply(conversation: Conversation): boolean {
+                if(!core.state.settings.showNeedsReply) return false;
+                for(let i = conversation.messages.length - 1; i >= 0; --i) {
+                    const sender = (<Partial<Conversation.ChatMessage>>conversation.messages[i]).sender;
+                    if(sender !== undefined)
+                        return sender !== core.characters.ownCharacter;
+                }
+                return false;
+            },
+            onKeyDown(e: KeyboardEvent): void {
+                const selected = this.conversations.selectedConversation;
+                const pms = this.conversations.privateConversations;
+                const channels = this.conversations.channelConversations;
+                const console = this.conversations.consoleTab;
+                if(getKey(e) === Keys.ArrowUp && e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey)
+                    if(selected === console) { //tslint:disable-line:curly
+                        if(channels.length > 0) channels[channels.length - 1].show();
+                        else if(pms.length > 0) pms[pms.length - 1].show();
+                    } else if(Conversation.isPrivate(selected)) {
+                        const index = pms.indexOf(selected);
+                        if(index === 0) console.show();
+                        else pms[index - 1].show();
+                    } else {
+                        const index = channels.indexOf(<Conversation.ChannelConversation>selected);
+                        if(index === 0)
+                            if(pms.length > 0) pms[pms.length - 1].show();
+                            else console.show();
+                        else channels[index - 1].show();
+                    }
+                else if(getKey(e) === Keys.ArrowDown && e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey)
+                    if(selected === console) { //tslint:disable-line:curly - false positive
+                        if(pms.length > 0) pms[0].show();
+                        else if(channels.length > 0) channels[0].show();
+                    } else if(Conversation.isPrivate(selected)) {
+                        const index = pms.indexOf(selected);
+                        if(index === pms.length - 1) {
+                            if(channels.length > 0) channels[0].show();
+                        } else pms[index + 1].show();
+                    } else {
+                        const index = channels.indexOf(<Conversation.ChannelConversation>selected);
+                        if(index < channels.length - 1) channels[index + 1].show();
                         else console.show();
-                    else channels[index - 1].show();
-                }
-            else if(getKey(e) === Keys.ArrowDown && e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey)
-                if(selected === console) { //tslint:disable-line:curly - false positive
-                    if(pms.length > 0) pms[0].show();
-                    else if(channels.length > 0) channels[0].show();
-                } else if(Conversation.isPrivate(selected)) {
-                    const index = pms.indexOf(selected);
-                    if(index === pms.length - 1) {
-                        if(channels.length > 0) channels[0].show();
-                    } else pms[index + 1].show();
-                } else {
-                    const index = channels.indexOf(<Conversation.ChannelConversation>selected);
-                    if(index < channels.length - 1) channels[index + 1].show();
-                    else console.show();
-                }
+                    }
+            },
+            setFontSize(fontSize: number): void {
+                let overrideEl = <HTMLStyleElement | null>document.getElementById('overrideFontSize');
+                if(overrideEl !== null)
+                    document.body.removeChild(overrideEl);
+                overrideEl = document.createElement('style');
+                overrideEl.id = 'overrideFontSize';
+                document.body.appendChild(overrideEl);
+                const sheet = <CSSStyleSheet>overrideEl.sheet;
+                sheet.insertRule(`#chatView, .btn, .form-control, .custom-select { font-size: ${fontSize}px; }`, sheet.cssRules.length);
+                sheet.insertRule(`.form-control, select.form-control { line-height: 1.428571429 }`, sheet.cssRules.length);
+            },
+            logOut(): void {
+                if(confirm(l('chat.confirmLeave'))) core.connection.close();
+            },
+            showSettings(): void {
+                (<SettingsView>this.$refs['settingsDialog']).show();
+            },
+            showSearch(): void {
+                (<CharacterSearch>this.$refs['searchDialog']).show();
+            },
+            showRecent(): void {
+                (<RecentConversations>this.$refs['recentDialog']).show();
+            },
+            showChannels(): void {
+                (<ChannelList>this.$refs['channelsDialog']).show();
+            },
+            showStatus(): void {
+                (<StatusSwitcher>this.$refs['statusDialog']).show();
+            },
+            userMenuHandle(e: MouseEvent | TouchEvent): void {
+                (<UserMenu>this.$refs['userMenu']).handleEvent(e);
+            },
+            getClasses(conversation: Conversation): string {
+                return conversation === core.conversations.selectedConversation ? ' active' : unreadClasses[conversation.unread];
+            }
         }
-
-        setFontSize(fontSize: number): void {
-            let overrideEl = <HTMLStyleElement | null>document.getElementById('overrideFontSize');
-            if(overrideEl !== null)
-                document.body.removeChild(overrideEl);
-            overrideEl = document.createElement('style');
-            overrideEl.id = 'overrideFontSize';
-            document.body.appendChild(overrideEl);
-            const sheet = <CSSStyleSheet>overrideEl.sheet;
-            sheet.insertRule(`#chatView, .btn, .form-control, .custom-select { font-size: ${fontSize}px; }`, sheet.cssRules.length);
-            sheet.insertRule(`.form-control, select.form-control { line-height: 1.428571429 }`, sheet.cssRules.length);
-        }
-
-        logOut(): void {
-            if(confirm(l('chat.confirmLeave'))) core.connection.close();
-        }
-
-        showSettings(): void {
-            (<SettingsView>this.$refs['settingsDialog']).show();
-        }
-
-        showSearch(): void {
-            (<CharacterSearch>this.$refs['searchDialog']).show();
-        }
-
-        showRecent(): void {
-            (<RecentConversations>this.$refs['recentDialog']).show();
-        }
-
-        showChannels(): void {
-            (<ChannelList>this.$refs['channelsDialog']).show();
-        }
-
-        showStatus(): void {
-            (<StatusSwitcher>this.$refs['statusDialog']).show();
-        }
-
-        userMenuHandle(e: MouseEvent | TouchEvent): void {
-            (<UserMenu>this.$refs['userMenu']).handleEvent(e);
-        }
-
-        get showAvatars(): boolean {
-            return core.state.settings.showAvatars;
-        }
-
-        get ownCharacter(): Character {
-            return core.characters.ownCharacter;
-        }
-
-        get ownCharacterLink(): string {
-            return profileLink(core.characters.ownCharacter.name);
-        }
-
-        getClasses(conversation: Conversation): string {
-            return conversation === core.conversations.selectedConversation ? ' active' : unreadClasses[conversation.unread];
-        }
-    }
+    });
+    type ChatView = InstanceType<typeof ChatView>;
+    export default ChatView;
 </script>
 
 <style lang="scss">

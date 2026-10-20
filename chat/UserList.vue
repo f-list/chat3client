@@ -29,7 +29,6 @@
 </template>
 
 <script lang="ts">
-    import {Component} from '@f-list/vue-ts';
     import Vue from 'vue';
     import Tabs from '../components/tabs';
     import core from './core';
@@ -38,34 +37,36 @@
     import Sidebar from './Sidebar.vue';
     import UserView from './user_view';
 
-    @Component({
-        components: {user: UserView, sidebar: Sidebar, tabs: Tabs}
-    })
-    export default class UserList extends Vue {
-        tab = '0';
-        expanded = window.innerWidth >= 992;
-        filter = '';
-        l = l;
-        sorter = (x: Character, y: Character) => (x.name < y.name ? -1 : (x.name > y.name ? 1 : 0));
-
-        get friends(): Character[] {
-            return core.characters.friends.slice().sort(this.sorter);
+    const UserList = Vue.extend({
+        components: {user: UserView, sidebar: Sidebar, tabs: Tabs},
+        data() {
+            return {
+                tab: '0',
+                expanded: window.innerWidth >= 992,
+                filter: '',
+                l: l,
+                sorter: (x: Character, y: Character) => (x.name < y.name ? -1 : (x.name > y.name ? 1 : 0))
+            };
+        },
+        computed: {
+            friends(): Character[] {
+                return core.characters.friends.slice().sort(this.sorter);
+            },
+            bookmarks(): Character[] {
+                return core.characters.bookmarks.slice().filter((x) => core.characters.friends.indexOf(x) === -1).sort(this.sorter);
+            },
+            channel(): Channel {
+                return (<Conversation.ChannelConversation>core.conversations.selectedConversation).channel;
+            },
+            filteredMembers(): ReadonlyArray<Channel.Member> {
+                if(this.filter.length === 0) return this.channel.sortedMembers;
+                const filter = new RegExp(this.filter.replace(/[^\w]/gi, '\\$&'), 'i');
+                return this.channel.sortedMembers.filter((member) => filter.test(member.character.name));
+            }
         }
-
-        get bookmarks(): Character[] {
-            return core.characters.bookmarks.slice().filter((x) => core.characters.friends.indexOf(x) === -1).sort(this.sorter);
-        }
-
-        get channel(): Channel {
-            return (<Conversation.ChannelConversation>core.conversations.selectedConversation).channel;
-        }
-
-        get filteredMembers(): ReadonlyArray<Channel.Member> {
-            if(this.filter.length === 0) return this.channel.sortedMembers;
-            const filter = new RegExp(this.filter.replace(/[^\w]/gi, '\\$&'), 'i');
-            return this.channel.sortedMembers.filter((member) => filter.test(member.character.name));
-        }
-    }
+    });
+    type UserList = InstanceType<typeof UserList>;
+    export default UserList;
 </script>
 
 <style lang="scss">

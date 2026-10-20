@@ -6,22 +6,25 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {SimpleCharacter} from '../interfaces';
     import * as Utils from '../site/utils';
 
-    @Component
-    export default class CharacterSelect extends Vue {
-        @Prop({required: true})
-        readonly value!: number;
-
-        get characters(): SimpleCharacter[] {
-            return Utils.characters;
+    const CharacterSelect = Vue.extend({
+        props: {
+            value: {required: true} as PropOptions<number>
+        },
+        computed: {
+            characters(): SimpleCharacter[] {
+                return Utils.characters;
+            }
+        },
+        methods: {
+            emit(evt: Event): void {
+                this.$emit('input', parseInt((<HTMLSelectElement>evt.target).value, 10));
+            }
         }
-
-        emit(evt: Event): void {
-            this.$emit('input', parseInt((<HTMLSelectElement>evt.target).value, 10));
-        }
-    }
+    });
+    type CharacterSelect = InstanceType<typeof CharacterSelect>;
+    export default CharacterSelect;
 </script>

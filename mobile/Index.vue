@@ -57,12 +57,12 @@
 </template>
 
 <script lang="ts">
-    import {Component, Hook} from '@f-list/vue-ts';
     import Axios from 'axios';
     import * as qs from 'qs';
     import Raven from 'raven-js';
     import Vue from 'vue';
     import Chat from '../chat/Chat.vue';
+    import {unset} from '../chat/common';
     import core from '../chat/core';
     import l from '../chat/localize';
     import Socket from '../chat/WebSocket';
@@ -88,22 +88,29 @@
         if(!confirm(l('chat.confirmLeave'))) e.preventDefault();
     }
 
-    @Component({
-        components: {chat: Chat, modal: Modal, characterPage: CharacterPage}
-    })
-    export default class Index extends Vue {
-        showAdvanced = false;
-        saveLogin = false;
-        loggingIn = false;
-        characters?: ReadonlyArray<SimpleCharacter>;
-        error = '';
-        defaultCharacter?: number;
-        settingsStore = new SettingsStore();
-        l = l;
-        settings!: GeneralSettings;
-        profileName = '';
-
-        @Hook('created')
+    const Index = Vue.extend({
+        components: {chat: Chat, modal: Modal, characterPage: CharacterPage},
+        data() {
+            return {
+                showAdvanced: false,
+                saveLogin: false,
+                loggingIn: false,
+                characters: undefined as ReadonlyArray<SimpleCharacter> | undefined,
+                error: '',
+                defaultCharacter: undefined as number | undefined,
+                settingsStore: new SettingsStore(),
+                l: l,
+                settings: unset<GeneralSettings>(),
+                profileName: ''
+            };
+        },
+        computed: {
+            styling(): string {
+                if(window.NativeView !== undefined) window.NativeView.setTheme(this.settings.theme);
+                //tslint:disable-next-line:no-require-imports
+                return `<style id="themeStyle">${require('../scss/fa.scss')}${require(`../scss/themes/chat/${this.settings.theme}.scss`)}</style>`;
+            }
+        },
         async created(): Promise<void> {
             document.addEventListener('open-profile', (e: Event) => {
                 const profileViewer = <Modal>this.$refs['profileViewer'];
@@ -118,59 +125,54 @@
             }
             if(settings.account.length > 0) this.saveLogin = true;
             this.settings = settings;
-        }
-
-        resetHost(): void {
-            this.settings.host = new GeneralSettings().host;
-        }
-
-        get styling(): string {
-            if(window.NativeView !== undefined) window.NativeView.setTheme(this.settings.theme);
-            //tslint:disable-next-line:no-require-imports
-            return `<style id="themeStyle">${require('../scss/fa.scss')}${require(`../scss/themes/chat/${this.settings.theme}.scss`)}</style>`;
-        }
-
-        async login(): Promise<void> {
-            if(this.loggingIn) return;
-            this.loggingIn = true;
-            try {
-                const data = <{ticket?: string, error: string, characters: {[key: string]: number}, default_character: number}>
-                    (await Axios.post('https://www.f-list.net/json/getApiTicket.php', qs.stringify({
-                        account: this.settings.account, password: this.settings.password, no_friends: true, no_bookmarks: true,
-                        new_character_list: true
-                    }))).data;
-                if(data.error !== '') {
-                    this.error = data.error;
-                    return;
+        },
+        methods: {
+            resetHost(): void {
+                this.settings.host = new GeneralSettings().host;
+            },
+            async login(): Promise<void> {
+                if(this.loggingIn) return;
+                this.loggingIn = true;
+                try {
+                    const data = <{ticket?: string, error: string, characters: {[key: string]: number}, default_character: number}>
+                        (await Axios.post('https://www.f-list.net/json/getApiTicket.php', qs.stringify({
+                            account: this.settings.account, password: this.settings.password, no_friends: true, no_bookmarks: true,
+                            new_character_list: true
+                        }))).data;
+                    if(data.error !== '') {
+                        this.error = data.error;
+                        return;
+                    }
+                    if(this.saveLogin) await setGeneralSettings(this.settings);
+                    Socket.host = this.settings.host;
+                    core.connection.setCredentials(this.settings.account, this.settings.password);
+                    core.connection.onEvent('connected', () => {
+                        Raven.setUserContext({username: core.connection.character});
+                        document.addEventListener('backbutton', confirmBack);
+                        NativeBackground.start();
+                    });
+                    core.connection.onEvent('closed', () => {
+                        Raven.setUserContext();
+                        document.removeEventListener('backbutton', confirmBack);
+                        NativeBackground.stop();
+                    });
+                    this.characters = Object.keys(data.characters).map((name) => ({name, id: data.characters[name], deleted: false}))
+                        .sort((x, y) => x.name.localeCompare(y.name));
+                    this.defaultCharacter = data.default_character;
+                } catch(e) {
+                    this.error = l('login.error');
+                    if(process.env.NODE_ENV !== 'production') throw e;
+                } finally {
+                    this.loggingIn = false;
                 }
-                if(this.saveLogin) await setGeneralSettings(this.settings);
-                Socket.host = this.settings.host;
-                core.connection.setCredentials(this.settings.account, this.settings.password);
-                core.connection.onEvent('connected', () => {
-                    Raven.setUserContext({username: core.connection.character});
-                    document.addEventListener('backbutton', confirmBack);
-                    NativeBackground.start();
-                });
-                core.connection.onEvent('closed', () => {
-                    Raven.setUserContext();
-                    document.removeEventListener('backbutton', confirmBack);
-                    NativeBackground.stop();
-                });
-                this.characters = Object.keys(data.characters).map((name) => ({name, id: data.characters[name], deleted: false}))
-                    .sort((x, y) => x.name.localeCompare(y.name));
-                this.defaultCharacter = data.default_character;
-            } catch(e) {
-                this.error = l('login.error');
-                if(process.env.NODE_ENV !== 'production') throw e;
-            } finally {
-                this.loggingIn = false;
+            },
+            openProfileInBrowser(): void {
+                window.open(`profile://${this.profileName}`);
             }
         }
-
-        openProfileInBrowser(): void {
-            window.open(`profile://${this.profileName}`);
-        }
-    }
+    });
+    type Index = InstanceType<typeof Index>;
+    export default Index;
 </script>
 
 <style>

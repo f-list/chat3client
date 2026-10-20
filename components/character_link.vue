@@ -6,32 +6,30 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {SimpleCharacter} from '../interfaces';
     import * as Utils from '../site/utils';
 
-    @Component
-    export default class CharacterLink extends Vue {
-        @Prop({required: true})
-        readonly character!: SimpleCharacter | string;
-        @Prop({default: '_blank'})
-        readonly target!: string;
-
-        get deleted(): boolean {
-            return typeof(this.character) === 'string' ? false : this.character.deleted;
+    const CharacterLink = Vue.extend({
+        props: {
+            character: {required: true} as PropOptions<SimpleCharacter | string>,
+            target: {default: '_blank'} as PropOptions<string>
+        },
+        computed: {
+            deleted(): boolean {
+                return typeof(this.character) === 'string' ? false : this.character.deleted;
+            },
+            linkClasses(): string {
+                return this.deleted ? 'characterLinkDeleted' : 'characterLink';
+            },
+            characterUrl(): string {
+                return Utils.characterURL(this.name);
+            },
+            name(): string {
+                return typeof(this.character) === 'string' ? this.character : this.character.name;
+            }
         }
-
-        get linkClasses(): string {
-            return this.deleted ? 'characterLinkDeleted' : 'characterLink';
-        }
-
-        get characterUrl(): string {
-            return Utils.characterURL(this.name);
-        }
-
-        get name(): string {
-            return typeof(this.character) === 'string' ? this.character : this.character.name;
-        }
-    }
+    });
+    type CharacterLink = InstanceType<typeof CharacterLink>;
+    export default CharacterLink;
 </script>

@@ -42,7 +42,6 @@
 </template>
 
 <script lang="ts">
-    import {Component} from '@f-list/vue-ts';
     import CustomDialog from '../components/custom_dialog';
     import Modal from '../components/Modal.vue';
     import Tabs from '../components/tabs';
@@ -50,56 +49,57 @@
     import core from './core';
     import l from './localize';
 
-    @Component({
-        components: {modal: Modal, tabs: Tabs}
-    })
-    export default class ChannelList extends CustomDialog {
-        privateTabShown = false;
-        l = l;
-        sortCount = true;
-        filter = '';
-        createName = '';
-        tab = '0';
-
-        get openRooms(): ReadonlyArray<Channel.ListItem> {
-            return this.applyFilter(core.channels.openRooms);
+    const ChannelList = CustomDialog.extend({
+        components: {modal: Modal, tabs: Tabs},
+        data() {
+            return {
+                privateTabShown: false,
+                l: l,
+                sortCount: true,
+                filter: '',
+                createName: '',
+                tab: '0'
+            };
+        },
+        computed: {
+            openRooms(): ReadonlyArray<Channel.ListItem> {
+                return this.applyFilter(core.channels.openRooms);
+            },
+            officialChannels(): ReadonlyArray<Channel.ListItem> {
+                return this.applyFilter(core.channels.officialChannels);
+            }
+        },
+        methods: {
+            applyFilter(list: {[key: string]: Channel.ListItem | undefined}): ReadonlyArray<Channel.ListItem> {
+                const channels: Channel.ListItem[] = [];
+                if(this.filter.length > 0) {
+                    const search = new RegExp(this.filter.replace(/[^\w]/gi, '\\$&'), 'i');
+                    for(const key in list) {
+                        const item = list[key]!;
+                        if(search.test(item.name)) channels.push(item);
+                    }
+                } else
+                    for(const key in list) channels.push(list[key]!);
+                channels.sort(this.sortCount ? (x, y) => y.memberCount - x.memberCount : (x, y) => x.name.localeCompare(y.name));
+                return channels;
+            },
+            create(): void {
+                core.connection.send('CCR', {channel: this.createName});
+                this.hide();
+            },
+            opened(): void {
+                core.channels.requestChannelsIfNeeded(30000);
+            },
+            closed(): void {
+                this.createName = '';
+            },
+            setJoined(channel: Channel.ListItem): void {
+                channel.isJoined ? core.channels.leave(channel.id) : core.channels.join(channel.id);
+            }
         }
-
-        get officialChannels(): ReadonlyArray<Channel.ListItem> {
-            return this.applyFilter(core.channels.officialChannels);
-        }
-
-        applyFilter(list: {[key: string]: Channel.ListItem | undefined}): ReadonlyArray<Channel.ListItem> {
-            const channels: Channel.ListItem[] = [];
-            if(this.filter.length > 0) {
-                const search = new RegExp(this.filter.replace(/[^\w]/gi, '\\$&'), 'i');
-                for(const key in list) {
-                    const item = list[key]!;
-                    if(search.test(item.name)) channels.push(item);
-                }
-            } else
-                for(const key in list) channels.push(list[key]!);
-            channels.sort(this.sortCount ? (x, y) => y.memberCount - x.memberCount : (x, y) => x.name.localeCompare(y.name));
-            return channels;
-        }
-
-        create(): void {
-            core.connection.send('CCR', {channel: this.createName});
-            this.hide();
-        }
-
-        opened(): void {
-            core.channels.requestChannelsIfNeeded(30000);
-        }
-
-        closed(): void {
-            this.createName = '';
-        }
-
-        setJoined(channel: Channel.ListItem): void {
-            channel.isJoined ? core.channels.leave(channel.id) : core.channels.join(channel.id);
-        }
-    }
+    });
+    type ChannelList = InstanceType<typeof ChannelList>;
+    export default ChannelList;
 </script>
 
 <style>

@@ -40,8 +40,7 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import {BBCodeView} from '../bbcode/view';
     import Modal from '../components/Modal.vue';
     import {characterImage, errorToString, getByteLength, profileLink} from './common';
@@ -50,159 +49,150 @@
     import l from './localize';
     import ReportDialog from './ReportDialog.vue';
 
-    @Component({
-        components: {bbcode: BBCodeView(core.bbCodeParser), modal: Modal}
-    })
-    export default class UserMenu extends Vue {
-        @Prop({required: true})
-        readonly reportDialog!: ReportDialog;
-        l = l;
-        showContextMenu = false;
-        getByteLength = getByteLength;
-        character: Character | undefined;
-        position = {left: '', top: ''};
-        characterImage: string | undefined;
-        touchedElement: HTMLElement | undefined;
-        channel: Channel | undefined;
-        memo = '';
-        memoId = 0;
-        memoLoading = false;
-
-        openConversation(jump: boolean): void {
-            const conversation = core.conversations.getPrivate(this.character!);
-            if(jump) conversation.show();
-        }
-
-        setIgnored(): void {
-            core.connection.send('IGN', {action: this.character!.isIgnored ? 'delete' : 'add', character: this.character!.name});
-        }
-
-        setBookmarked(): void {
-            core.connection.queryApi(`bookmark-${this.character!.isBookmarked ? 'remove' : 'add'}.php`, {name: this.character!.name})
-                .catch((e: object) => alert(errorToString(e)));
-        }
-
-        setHidden(): void {
-            const index = core.state.hiddenUsers.indexOf(this.character!.name);
-            if(index !== -1) core.state.hiddenUsers.splice(index, 1);
-            else core.state.hiddenUsers.push(this.character!.name);
-        }
-
-        report(): void {
-            this.reportDialog.report(this.character!);
-        }
-
-        channelKick(): void {
-            core.connection.send('CKU', {channel: this.channel!.id, character: this.character!.name});
-        }
-
-        chatKick(): void {
-            core.connection.send('KIK', {character: this.character!.name});
-        }
-
-        async showMemo(): Promise<void> {
-            this.memoLoading = true;
-            this.memo = '';
-            (<Modal>this.$refs['memo']).show();
-            try {
-                const memo = await core.connection.queryApi<{note: string | null, id: number}>('character-memo-get2.php',
-                    {target: this.character!.name});
-                this.memoId = memo.id;
-                this.memo = memo.note !== null ? memo.note : '';
-                this.memoLoading = false;
-            } catch(e) {
-                alert(errorToString(e));
+    const UserMenu = Vue.extend({
+        components: {bbcode: BBCodeView(core.bbCodeParser), modal: Modal},
+        props: {
+            reportDialog: {required: true} as PropOptions<ReportDialog>
+        },
+        data() {
+            return {
+                l: l,
+                showContextMenu: false,
+                getByteLength: getByteLength,
+                character: undefined as Character | undefined,
+                position: {left: '', top: ''},
+                characterImage: undefined as string | undefined,
+                touchedElement: undefined as HTMLElement | undefined,
+                channel: undefined as Channel | undefined,
+                memo: '',
+                memoId: 0,
+                memoLoading: false
+            };
+        },
+        computed: {
+            isChannelMod(): boolean {
+                if(this.channel === undefined) return false;
+                if(core.characters.ownCharacter.isChatOp) return true;
+                const member = this.channel.members[core.connection.character];
+                return member !== undefined && member.rank > Channel.Rank.Member;
+            },
+            isHidden(): boolean {
+                return core.state.hiddenUsers.indexOf(this.character!.name) !== -1;
+            },
+            isChatOp(): boolean {
+                return core.characters.ownCharacter.isChatOp;
+            },
+            showProfileFirst(): boolean {
+                return core.state.settings.clickOpensMessage;
+            },
+            showAvatars(): boolean {
+                return core.state.settings.showAvatars;
+            },
+            profileLink(): string | undefined {
+                return profileLink(this.character!.name);
             }
-        }
-
-        updateMemo(): void {
-            core.connection.queryApi('character-memo-save.php', {target: this.memoId, note: this.memo})
-                .catch((e: object) => alert(errorToString(e)));
-        }
-
-        get isChannelMod(): boolean {
-            if(this.channel === undefined) return false;
-            if(core.characters.ownCharacter.isChatOp) return true;
-            const member = this.channel.members[core.connection.character];
-            return member !== undefined && member.rank > Channel.Rank.Member;
-        }
-
-        get isHidden(): boolean {
-            return core.state.hiddenUsers.indexOf(this.character!.name) !== -1;
-        }
-
-        get isChatOp(): boolean {
-            return core.characters.ownCharacter.isChatOp;
-        }
-
-        get showProfileFirst(): boolean {
-            return core.state.settings.clickOpensMessage;
-        }
-
-        get showAvatars(): boolean {
-            return core.state.settings.showAvatars;
-        }
-
-        get profileLink(): string | undefined {
-            return profileLink(this.character!.name);
-        }
-
-        handleEvent(e: MouseEvent | TouchEvent): void {
-            const touch = e.type === 'touchstart' ? (<TouchEvent>e).changedTouches[0] : <MouseEvent>e;
-            let node = <HTMLElement & {character?: Character, channel?: Channel, touched?: boolean}>touch.target;
-            while(node !== document.body) {
-                if(e.type !== 'click' && node === this.$refs['menu'] || node.id === 'userMenuStatus') return;
-                if(node.character !== undefined || node.dataset['character'] !== undefined || node.parentNode === null) break;
-                node = node.parentElement!;
-            }
-            if(node.dataset['touch'] === 'false' && e.type !== 'contextmenu') return;
-            if(!node.character)
-                if(node.dataset['character'] !== undefined) node.character = core.characters.get(node.dataset['character']!);
-                else {
-                    this.showContextMenu = false;
-                    this.touchedElement = undefined;
-                    return;
+        },
+        methods: {
+            openConversation(jump: boolean): void {
+                const conversation = core.conversations.getPrivate(this.character!);
+                if(jump) conversation.show();
+            },
+            setIgnored(): void {
+                core.connection.send('IGN', {action: this.character!.isIgnored ? 'delete' : 'add', character: this.character!.name});
+            },
+            setBookmarked(): void {
+                core.connection.queryApi(`bookmark-${this.character!.isBookmarked ? 'remove' : 'add'}.php`, {name: this.character!.name})
+                    .catch((e: object) => alert(errorToString(e)));
+            },
+            setHidden(): void {
+                const index = core.state.hiddenUsers.indexOf(this.character!.name);
+                if(index !== -1) core.state.hiddenUsers.splice(index, 1);
+                else core.state.hiddenUsers.push(this.character!.name);
+            },
+            report(): void {
+                this.reportDialog.report(this.character!);
+            },
+            channelKick(): void {
+                core.connection.send('CKU', {channel: this.channel!.id, character: this.character!.name});
+            },
+            chatKick(): void {
+                core.connection.send('KIK', {character: this.character!.name});
+            },
+            async showMemo(): Promise<void> {
+                this.memoLoading = true;
+                this.memo = '';
+                (<Modal>this.$refs['memo']).show();
+                try {
+                    const memo = await core.connection.queryApi<{note: string | null, id: number}>('character-memo-get2.php',
+                        {target: this.character!.name});
+                    this.memoId = memo.id;
+                    this.memo = memo.note !== null ? memo.note : '';
+                    this.memoLoading = false;
+                } catch(e) {
+                    alert(errorToString(e));
                 }
-            switch(e.type) {
-                case 'click':
-                    if(node.dataset['character'] === undefined)
-                        if(node === this.touchedElement) this.openMenu(touch, node.character, node.channel || undefined);
-                        else this.onClick(node.character);
-                    e.preventDefault();
-                    break;
-                case 'touchstart':
-                    this.touchedElement = node;
-                    break;
-                case 'contextmenu':
-                    this.openMenu(touch, node.character, node.channel || undefined);
-                    e.preventDefault();
+            },
+            updateMemo(): void {
+                core.connection.queryApi('character-memo-save.php', {target: this.memoId, note: this.memo})
+                    .catch((e: object) => alert(errorToString(e)));
+            },
+            handleEvent(e: MouseEvent | TouchEvent): void {
+                const touch = e.type === 'touchstart' ? (<TouchEvent>e).changedTouches[0] : <MouseEvent>e;
+                let node = <HTMLElement & {character?: Character, channel?: Channel, touched?: boolean}>touch.target;
+                while(node !== document.body) {
+                    if(e.type !== 'click' && node === this.$refs['menu'] || node.id === 'userMenuStatus') return;
+                    if(node.character !== undefined || node.dataset['character'] !== undefined || node.parentNode === null) break;
+                    node = node.parentElement!;
+                }
+                if(node.dataset['touch'] === 'false' && e.type !== 'contextmenu') return;
+                if(!node.character)
+                    if(node.dataset['character'] !== undefined) node.character = core.characters.get(node.dataset['character']!);
+                    else {
+                        this.showContextMenu = false;
+                        this.touchedElement = undefined;
+                        return;
+                    }
+                switch(e.type) {
+                    case 'click':
+                        if(node.dataset['character'] === undefined)
+                            if(node === this.touchedElement) this.openMenu(touch, node.character, node.channel || undefined);
+                            else this.onClick(node.character);
+                        e.preventDefault();
+                        break;
+                    case 'touchstart':
+                        this.touchedElement = node;
+                        break;
+                    case 'contextmenu':
+                        this.openMenu(touch, node.character, node.channel || undefined);
+                        e.preventDefault();
+                }
+            },
+            onClick(character: Character): void {
+                this.character = character;
+                if(core.state.settings.clickOpensMessage) this.openConversation(true);
+                else window.open(this.profileLink);
+                this.showContextMenu = false;
+            },
+            openMenu(touch: MouseEvent | Touch, character: Character, channel: Channel | undefined): void {
+                this.channel = channel;
+                this.character = character;
+                this.characterImage = undefined;
+                this.showContextMenu = true;
+                this.position = {left: `${touch.clientX}px`, top: `${touch.clientY}px`};
+                this.$nextTick(() => {
+                    const menu = <HTMLElement>this.$refs['menu'];
+                    if(this.character !== character) return;
+                    this.characterImage = characterImage(character.name);
+                    if((parseInt(this.position.left, 10) + menu.offsetWidth) > window.innerWidth)
+                        this.position.left = `${window.innerWidth - menu.offsetWidth - 1}px`;
+                    if((parseInt(this.position.top, 10) + menu.offsetHeight) > window.innerHeight)
+                        this.position.top = `${window.innerHeight - menu.offsetHeight - 1}px`;
+                });
             }
         }
-
-        private onClick(character: Character): void {
-            this.character = character;
-            if(core.state.settings.clickOpensMessage) this.openConversation(true);
-            else window.open(this.profileLink);
-            this.showContextMenu = false;
-        }
-
-        private openMenu(touch: MouseEvent | Touch, character: Character, channel: Channel | undefined): void {
-            this.channel = channel;
-            this.character = character;
-            this.characterImage = undefined;
-            this.showContextMenu = true;
-            this.position = {left: `${touch.clientX}px`, top: `${touch.clientY}px`};
-            this.$nextTick(() => {
-                const menu = <HTMLElement>this.$refs['menu'];
-                if(this.character !== character) return;
-                this.characterImage = characterImage(character.name);
-                if((parseInt(this.position.left, 10) + menu.offsetWidth) > window.innerWidth)
-                    this.position.left = `${window.innerWidth - menu.offsetWidth - 1}px`;
-                if((parseInt(this.position.top, 10) + menu.offsetHeight) > window.innerHeight)
-                    this.position.top = `${window.innerHeight - menu.offsetHeight - 1}px`;
-            });
-        }
-    }
+    });
+    type UserMenu = InstanceType<typeof UserMenu>;
+    export default UserMenu;
 </script>
 
 <style>

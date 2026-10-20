@@ -11,39 +11,44 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
     import * as Utils from '../utils';
     import {methods} from './data_store';
     import {Character, CharacterGroup} from './interfaces';
 
-    @Component
-    export default class GroupsView extends Vue {
-        @Prop({required: true})
-        private readonly character!: Character;
-        private shown = false;
-        groups: CharacterGroup[] = [];
-        loading = true;
-        error = '';
-
-        groupUrl(group: CharacterGroup): string {
-            return `${Utils.staticDomain}threads/group/${group.id}`;
-        }
-
-        async show(): Promise<void> {
-            if(this.shown) return;
-            try {
-                this.error = '';
-                this.shown = true;
-                this.loading = true;
-                this.groups = await methods.groupsGet(this.character.character.id);
-            } catch(e) {
-                this.shown = false;
-                if(Utils.isJSONError(e))
-                    this.error = <string>e.response.data.error;
-                Utils.ajaxError(e, 'Unable to load groups.');
+    const GroupsView = Vue.extend({
+        props: {
+            character: {required: true} as PropOptions<Character>
+        },
+        data() {
+            return {
+                shown: false,
+                groups: [] as CharacterGroup[],
+                loading: true,
+                error: ''
+            };
+        },
+        methods: {
+            groupUrl(group: CharacterGroup): string {
+                return `${Utils.staticDomain}threads/group/${group.id}`;
+            },
+            async show(): Promise<void> {
+                if(this.shown) return;
+                try {
+                    this.error = '';
+                    this.shown = true;
+                    this.loading = true;
+                    this.groups = await methods.groupsGet(this.character.character.id);
+                } catch(e) {
+                    this.shown = false;
+                    if(Utils.isJSONError(e))
+                        this.error = <string>e.response.data.error;
+                    Utils.ajaxError(e, 'Unable to load groups.');
+                }
+                this.loading = false;
             }
-            this.loading = false;
         }
-    }
+    });
+    type GroupsView = InstanceType<typeof GroupsView>;
+    export default GroupsView;
 </script>

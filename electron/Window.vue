@@ -36,13 +36,13 @@
 <script lang="ts">
     import Sortable = require('sortablejs'); //tslint:disable-line:no-require-imports
 
-    import {Component, Hook} from '@f-list/vue-ts';
     import * as electron from 'electron';
     import * as remote from '@electron/remote';
     import * as fs from 'fs';
     import * as path from 'path';
     import * as url from 'url';
     import Vue from 'vue';
+    import {unset} from '../chat/common';
     import l from '../chat/localize';
     import {GeneralSettings} from './common';
 
@@ -70,20 +70,34 @@
 
     const trayIcon = path.join(__dirname, <string>require('./build/tray.png')); //tslint:disable-line:no-require-imports
 
-    @Component
-    export default class Window extends Vue {
-        settings!: GeneralSettings;
-        tabs: Tab[] = [];
-        activeTab: Tab | undefined;
-        tabMap: {[key: number]: Tab} = {};
-        isMaximized = false;
-        canOpenTab = true;
-        l = l;
-        hasUpdate = false;
-        platform = process.platform;
-        lockTab = false;
-
-        @Hook('mounted')
+    const Window = Vue.extend({
+        data() {
+            return {
+                settings: unset<GeneralSettings>(),
+                tabs: [] as Tab[],
+                activeTab: undefined as Tab | undefined,
+                tabMap: {} as {[key: number]: Tab},
+                isMaximized: false,
+                canOpenTab: true,
+                l: l,
+                hasUpdate: false,
+                platform: process.platform,
+                lockTab: false
+            };
+        },
+        computed: {
+            styling(): string {
+                try {
+                    return `<style>${fs.readFileSync(path.join(__dirname, `themes/${this.settings.theme}.css`))}</style>`;
+                } catch(e) {
+                    if((<Error & {code: string}>e).code === 'ENOENT' && this.settings.theme !== 'default') {
+                        this.settings.theme = 'default';
+                        return this.styling;
+                    }
+                    throw e;
+                }
+            }
+        },
         async mounted(): Promise<void> {
             await this.addTab();
             electron.ipcRenderer.on('settings', (_event: Electron.IpcRendererEvent, settings: GeneralSettings) => this.settings = settings);
@@ -155,109 +169,91 @@
                 return false;
             };
             this.isMaximized = browserWindow.isMaximized();
-        }
-
-        destroyAllTabs(): void {
-            browserWindow.setBrowserView(null!); //tslint:disable-line:no-null-keyword
-            this.tabs.forEach(destroyTab);
-            this.tabs = [];
-        }
-
-        get styling(): string {
-            try {
-                return `<style>${fs.readFileSync(path.join(__dirname, `themes/${this.settings.theme}.css`))}</style>`;
-            } catch(e) {
-                if((<Error & {code: string}>e).code === 'ENOENT' && this.settings.theme !== 'default') {
-                    this.settings.theme = 'default';
-                    return this.styling;
-                }
-                throw e;
+        },
+        methods: {
+            destroyAllTabs(): void {
+                browserWindow.setBrowserView(null!); //tslint:disable-line:no-null-keyword
+                this.tabs.forEach(destroyTab);
+                this.tabs = [];
+            },
+            trayClicked(tab: Tab): void {
+                browserWindow.show();
+                if(this.isMaximized) browserWindow.maximize();
+                this.show(tab);
+            },
+            createTrayMenu(tab: Tab): Electron.MenuItemConstructorOptions[] {
+                return [
+                    {label: l('action.open'), click: () => this.trayClicked(tab)},
+                    {label: l('action.quit'), click: () => this.remove(tab, false)}
+                ];
+            },
+            async addTab(): Promise<void> {
+                if(this.lockTab) return;
+                const tray = new remote.Tray(trayIcon);
+                tray.setToolTip(l('title'));
+                tray.on('click', (_) => this.trayClicked(tab));
+                const view = new remote.BrowserView({
+                    webPreferences: {
+                        nodeIntegration: true,
+                        nodeIntegrationInWorker: true,
+                        spellcheck: true,
+                        contextIsolation: false
+                    }
+                });
+                // tslint:disable-next-line:no-require-imports no-submodule-imports
+                require('@electron/remote/main').enable(view.webContents);
+                view.setAutoResize({width: true, height: true});
+                electron.ipcRenderer.send('tab-added', view.webContents.id);
+                const tab = {active: false, view, user: undefined, hasNew: false, tray};
+                tray.setContextMenu(remote.Menu.buildFromTemplate(this.createTrayMenu(tab)));
+                this.tabs.push(tab);
+                this.tabMap[view.webContents.id] = tab;
+                this.show(tab);
+                this.lockTab = true;
+                await view.webContents.loadURL(url.format({
+                    pathname: path.join(__dirname, 'index.html'),
+                    protocol: 'file:',
+                    slashes: true,
+                    query: {settings: JSON.stringify(this.settings)}
+                }));
+                tab.view.setBounds(getWindowBounds());
+                this.lockTab = false;
+            },
+            show(tab: Tab): void {
+                if(this.lockTab) return;
+                this.activeTab = tab;
+                browserWindow.setBrowserView(tab.view);
+                tab.view.setBounds(getWindowBounds());
+                tab.view.webContents.focus();
+            },
+            remove(tab: Tab, shouldConfirm: boolean = true): void {
+                if(this.lockTab || shouldConfirm && tab.user !== undefined && !confirm(l('chat.confirmLeave'))) return;
+                this.tabs.splice(this.tabs.indexOf(tab), 1);
+                electron.ipcRenderer.send('has-new', this.tabs.reduce((cur, t) => cur || t.hasNew, false));
+                delete this.tabMap[tab.view.webContents.id];
+                if(this.tabs.length === 0) {
+                    browserWindow.setBrowserView(null!); //tslint:disable-line:no-null-keyword
+                    if(process.env.NODE_ENV === 'production') browserWindow.close();
+                } else if(this.activeTab === tab) this.show(this.tabs[0]);
+                destroyTab(tab);
+            },
+            minimize(): void {
+                browserWindow.minimize();
+            },
+            maximize(): void {
+                if(browserWindow.isMaximized()) browserWindow.unmaximize();
+                else browserWindow.maximize();
+            },
+            close(): void {
+                browserWindow.close();
+            },
+            openMenu(): void {
+                remote.Menu.getApplicationMenu()!.popup({});
             }
         }
-
-        trayClicked(tab: Tab): void {
-            browserWindow.show();
-            if(this.isMaximized) browserWindow.maximize();
-            this.show(tab);
-        }
-
-        createTrayMenu(tab: Tab): Electron.MenuItemConstructorOptions[] {
-            return [
-                {label: l('action.open'), click: () => this.trayClicked(tab)},
-                {label: l('action.quit'), click: () => this.remove(tab, false)}
-            ];
-        }
-
-        async addTab(): Promise<void> {
-            if(this.lockTab) return;
-            const tray = new remote.Tray(trayIcon);
-            tray.setToolTip(l('title'));
-            tray.on('click', (_) => this.trayClicked(tab));
-            const view = new remote.BrowserView({
-                webPreferences: {
-                    nodeIntegration: true,
-                    nodeIntegrationInWorker: true,
-                    spellcheck: true,
-                    contextIsolation: false
-                }
-            });
-            // tslint:disable-next-line:no-require-imports no-submodule-imports
-            require('@electron/remote/main').enable(view.webContents);
-            view.setAutoResize({width: true, height: true});
-            electron.ipcRenderer.send('tab-added', view.webContents.id);
-            const tab = {active: false, view, user: undefined, hasNew: false, tray};
-            tray.setContextMenu(remote.Menu.buildFromTemplate(this.createTrayMenu(tab)));
-            this.tabs.push(tab);
-            this.tabMap[view.webContents.id] = tab;
-            this.show(tab);
-            this.lockTab = true;
-            await view.webContents.loadURL(url.format({
-                pathname: path.join(__dirname, 'index.html'),
-                protocol: 'file:',
-                slashes: true,
-                query: {settings: JSON.stringify(this.settings)}
-            }));
-            tab.view.setBounds(getWindowBounds());
-            this.lockTab = false;
-        }
-
-        show(tab: Tab): void {
-            if(this.lockTab) return;
-            this.activeTab = tab;
-            browserWindow.setBrowserView(tab.view);
-            tab.view.setBounds(getWindowBounds());
-            tab.view.webContents.focus();
-        }
-
-        remove(tab: Tab, shouldConfirm: boolean = true): void {
-            if(this.lockTab || shouldConfirm && tab.user !== undefined && !confirm(l('chat.confirmLeave'))) return;
-            this.tabs.splice(this.tabs.indexOf(tab), 1);
-            electron.ipcRenderer.send('has-new', this.tabs.reduce((cur, t) => cur || t.hasNew, false));
-            delete this.tabMap[tab.view.webContents.id];
-            if(this.tabs.length === 0) {
-                browserWindow.setBrowserView(null!); //tslint:disable-line:no-null-keyword
-                if(process.env.NODE_ENV === 'production') browserWindow.close();
-            } else if(this.activeTab === tab) this.show(this.tabs[0]);
-            destroyTab(tab);
-        }
-
-        minimize(): void {
-            browserWindow.minimize();
-        }
-
-        maximize(): void {
-            if(browserWindow.isMaximized()) browserWindow.unmaximize();
-            else browserWindow.maximize();
-        }
-
-        close(): void {
-            browserWindow.close();
-        }
-
-        openMenu(): void {
-            remote.Menu.getApplicationMenu()!.popup({});
-        }
-    }
+    });
+    type Window = InstanceType<typeof Window>;
+    export default Window;
 </script>
 
 <style lang="scss">

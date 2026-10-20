@@ -90,8 +90,7 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop} from '@f-list/vue-ts';
-    import Vue, {Component as VueComponent, ComponentOptions, CreateElement, VNode} from 'vue';
+    import Vue, {Component as VueComponent, ComponentOptions, CreateElement, PropOptions, VNode} from 'vue';
     import DateDisplay from '../../components/date_display.vue';
     import {Infotag} from '../../interfaces';
     import * as Utils from '../utils';
@@ -126,7 +125,7 @@
     Vue.component('rename-dialog', resolveComponent('rename-dialog'));
     Vue.component('character-action-menu', resolveComponent('character-action-menu'));
 
-    @Component({
+    const Sidebar = Vue.extend({
         components: {
             'contact-method': ContactMethodView,
             date: DateDisplay,
@@ -136,112 +135,102 @@
             'infotag-item': InfotagView,
             'memo-dialog': MemoDialog,
             'report-dialog': ReportDialog
-        }
-    })
-    export default class Sidebar extends Vue {
-        @Prop({required: true})
-        readonly character!: Character;
-        @Prop
-        readonly oldApi?: true;
-        readonly quickInfoIds: ReadonlyArray<number> = [1, 3, 2, 49, 9, 29, 15, 41, 25]; // Do not sort these.
-        readonly avatarUrl = Utils.avatarURL;
-
-        badgeClass(badgeName: string): string {
-            return `character-badge-${badgeName.replace('.', '-')}`;
-        }
-
-        badgeIconClass(badgeName: string): string {
-            const classMap: {[key: string]: string} = {
-                admin: 'fa fa-gem',
-                global: 'far fa-gem',
-                chatop: 'far fa-gem',
-                chanop: 'fa fa-star',
-                helpdesk: 'fa fa-user',
-                developer: 'fa fa-terminal',
-                'subscription.lifetime': 'fa fa-certificate'
+        },
+        props: {
+            character: {required: true} as PropOptions<Character>,
+            oldApi: {} as PropOptions<true | undefined>
+        },
+        data() {
+            return {
+                quickInfoIds: [1, 3, 2, 49, 9, 29, 15, 41, 25] as ReadonlyArray<number>,
+                avatarUrl: Utils.avatarURL
             };
-            return badgeName in classMap ? classMap[badgeName] : '';
-        }
-
-        badgeTitle(badgeName: string): string {
-            const badgeMap: {[key: string]: string} = {
-                admin: 'Administrator',
-                global: 'Global Moderator',
-                chatop: 'Chat Moderator',
-                chanop: 'Channel Moderator',
-                helpdesk: 'Helpdesk',
-                developer: 'Developer',
-                'subscription.lifetime': 'Lifetime Subscriber',
-                'subscription.other': 'Subscriber'
-            };
-            return badgeName in badgeMap ? badgeMap[badgeName] : badgeName;
-        }
-
-        showBlock(): void {
-            (<ShowableVueDialog>this.$refs['block-dialog']).show();
-        }
-
-        showRename(): void {
-            (<ShowableVueDialog>this.$refs['rename-dialog']).show();
-        }
-
-        showDelete(): void {
-            (<ShowableVueDialog>this.$refs['delete-dialog']).show();
-        }
-
-        showDuplicate(): void {
-            (<ShowableVueDialog>this.$refs['duplicate-dialog']).show();
-        }
-
-        showMemo(): void {
-            (<ShowableVueDialog>this.$refs['memo-dialog']).show();
-        }
-
-        showReport(): void {
-            (<ShowableVueDialog>this.$refs['report-dialog']).show();
-        }
-
-        showFriends(): void {
-            (<ShowableVueDialog>this.$refs['friend-dialog']).show();
-        }
-
-        showInChat(): void {
-            //TODO implement this
-        }
-
-        async toggleBookmark(): Promise<void> {
-            try {
-                await methods.bookmarkUpdate(this.character.character.id, !this.character.bookmarked);
-                this.character.bookmarked = !this.character.bookmarked;
-            } catch(e) {
-                Utils.ajaxError(e, 'Unable to change bookmark state.');
+        },
+        computed: {
+            editUrl(): string {
+                return `${Utils.siteDomain}character/${this.character.character.id}/edit`;
+            },
+            noteUrl(): string {
+                return methods.sendNoteUrl(this.character.character);
+            },
+            contactMethods(): {id: number, value?: string}[] {
+                return Object.keys(Store.shared.infotags).map((x) => Store.shared.infotags[x])
+                    .filter((x) => x.infotag_group === CONTACT_GROUP_ID && this.character.character.infotags[x.id] !== undefined)
+                    .sort((a, b) => a.name < b.name ? -1 : 1);
+            },
+            authenticated(): boolean {
+                return Store.authenticated;
+            }
+        },
+        methods: {
+            badgeClass(badgeName: string): string {
+                return `character-badge-${badgeName.replace('.', '-')}`;
+            },
+            badgeIconClass(badgeName: string): string {
+                const classMap: {[key: string]: string} = {
+                    admin: 'fa fa-gem',
+                    global: 'far fa-gem',
+                    chatop: 'far fa-gem',
+                    chanop: 'fa fa-star',
+                    helpdesk: 'fa fa-user',
+                    developer: 'fa fa-terminal',
+                    'subscription.lifetime': 'fa fa-certificate'
+                };
+                return badgeName in classMap ? classMap[badgeName] : '';
+            },
+            badgeTitle(badgeName: string): string {
+                const badgeMap: {[key: string]: string} = {
+                    admin: 'Administrator',
+                    global: 'Global Moderator',
+                    chatop: 'Chat Moderator',
+                    chanop: 'Channel Moderator',
+                    helpdesk: 'Helpdesk',
+                    developer: 'Developer',
+                    'subscription.lifetime': 'Lifetime Subscriber',
+                    'subscription.other': 'Subscriber'
+                };
+                return badgeName in badgeMap ? badgeMap[badgeName] : badgeName;
+            },
+            showBlock(): void {
+                (<ShowableVueDialog>this.$refs['block-dialog']).show();
+            },
+            showRename(): void {
+                (<ShowableVueDialog>this.$refs['rename-dialog']).show();
+            },
+            showDelete(): void {
+                (<ShowableVueDialog>this.$refs['delete-dialog']).show();
+            },
+            showDuplicate(): void {
+                (<ShowableVueDialog>this.$refs['duplicate-dialog']).show();
+            },
+            showMemo(): void {
+                (<ShowableVueDialog>this.$refs['memo-dialog']).show();
+            },
+            showReport(): void {
+                (<ShowableVueDialog>this.$refs['report-dialog']).show();
+            },
+            showFriends(): void {
+                (<ShowableVueDialog>this.$refs['friend-dialog']).show();
+            },
+            showInChat(): void {
+                //TODO implement this
+            },
+            async toggleBookmark(): Promise<void> {
+                try {
+                    await methods.bookmarkUpdate(this.character.character.id, !this.character.bookmarked);
+                    this.character.bookmarked = !this.character.bookmarked;
+                } catch(e) {
+                    Utils.ajaxError(e, 'Unable to change bookmark state.');
+                }
+            },
+            getInfotag(id: number): Infotag {
+                return Store.shared.infotags[id];
+            },
+            memo(memo: object): void {
+                this.$emit('memo', memo);
             }
         }
-
-        get editUrl(): string {
-            return `${Utils.siteDomain}character/${this.character.character.id}/edit`;
-        }
-
-        get noteUrl(): string {
-            return methods.sendNoteUrl(this.character.character);
-        }
-
-        get contactMethods(): {id: number, value?: string}[] {
-            return Object.keys(Store.shared.infotags).map((x) => Store.shared.infotags[x])
-                .filter((x) => x.infotag_group === CONTACT_GROUP_ID && this.character.character.infotags[x.id] !== undefined)
-                .sort((a, b) => a.name < b.name ? -1 : 1);
-        }
-
-        getInfotag(id: number): Infotag {
-            return Store.shared.infotags[id];
-        }
-
-        get authenticated(): boolean {
-            return Store.authenticated;
-        }
-
-        memo(memo: object): void {
-            this.$emit('memo', memo);
-        }
-    }
+    });
+    type Sidebar = InstanceType<typeof Sidebar>;
+    export default Sidebar;
 </script>

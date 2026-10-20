@@ -15,24 +15,29 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop, Watch} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
 
-    @Component
-    export default class Sidebar extends Vue {
-        @Prop
-        readonly right?: true;
-        @Prop
-        readonly label?: string;
-        @Prop({required: true})
-        readonly icon!: string;
-        @Prop({default: false})
-        readonly open!: boolean;
-        expanded = this.open;
-
-        @Watch('open')
-        watchOpen(): void {
-            this.expanded = this.open;
+    const Sidebar = Vue.extend({
+        props: {
+            right: {} as PropOptions<true | undefined>,
+            label: {} as PropOptions<string | undefined>,
+            icon: {required: true} as PropOptions<string>,
+            open: {default: false} as PropOptions<boolean>
+        },
+        data() {
+            return {
+                expanded: this.open
+            };
+        },
+        watch: {
+            open: 'watchOpen'
+        },
+        methods: {
+            watchOpen(): void {
+                this.expanded = this.open;
+            }
         }
-    }
+    });
+    type Sidebar = InstanceType<typeof Sidebar>;
+    export default Sidebar;
 </script>

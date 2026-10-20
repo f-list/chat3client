@@ -11,45 +11,49 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop, Watch} from '@f-list/vue-ts';
-    import Vue from 'vue';
+    import Vue, {PropOptions} from 'vue';
 
-    @Component
-    export default class Dropdown extends Vue {
-        isOpen = false;
-        @Prop({default: 'btn btn-secondary dropdown-toggle'})
-        readonly linkClass!: string;
-        @Prop
-        readonly keepOpen?: boolean;
-        @Prop
-        readonly title?: string;
-
-        @Watch('isOpen')
-        onToggle(): void {
-            const menu = this.$refs['menu'] as HTMLElement;
-            if(!this.isOpen) {
-                menu.style.cssText = '';
-                return;
+    const Dropdown = Vue.extend({
+        props: {
+            linkClass: {default: 'btn btn-secondary dropdown-toggle'} as PropOptions<string>,
+            keepOpen: {} as PropOptions<boolean | undefined>,
+            title: {} as PropOptions<string | undefined>
+        },
+        data() {
+            return {
+                isOpen: false
+            };
+        },
+        watch: {
+            isOpen: 'onToggle'
+        },
+        methods: {
+            onToggle(): void {
+                const menu = this.$refs['menu'] as HTMLElement;
+                if(!this.isOpen) {
+                    menu.style.cssText = '';
+                    return;
+                }
+                menu.style.display = 'block';
+                const offset = menu.getBoundingClientRect();
+                menu.style.position = 'fixed';
+                menu.style.left = offset.right < window.innerWidth ? `${offset.left}px` : `${window.innerWidth - offset.width}px`;
+                menu.style.top = (offset.bottom < window.innerHeight) ? `${offset.top}px` :
+                    `${offset.top - offset.height - (<HTMLElement>this.$el).offsetHeight}px`;
+            },
+            blur(event: FocusEvent): void {
+                let elm = <HTMLElement | null>event.relatedTarget;
+                while(elm) {
+                    if(elm === this.$refs['menu']) return;
+                    elm = elm.parentElement;
+                }
+                this.isOpen = false;
+            },
+            menuClick(): void {
+                if(!this.keepOpen) this.isOpen = false;
             }
-            menu.style.display = 'block';
-            const offset = menu.getBoundingClientRect();
-            menu.style.position = 'fixed';
-            menu.style.left = offset.right < window.innerWidth ? `${offset.left}px` : `${window.innerWidth - offset.width}px`;
-            menu.style.top = (offset.bottom < window.innerHeight) ? `${offset.top}px` :
-                `${offset.top - offset.height - (<HTMLElement>this.$el).offsetHeight}px`;
         }
-
-        blur(event: FocusEvent): void {
-            let elm = <HTMLElement | null>event.relatedTarget;
-            while(elm) {
-                if(elm === this.$refs['menu']) return;
-                elm = elm.parentElement;
-            }
-            this.isOpen = false;
-        }
-
-        menuClick(): void {
-            if(!this.keepOpen) this.isOpen = false;
-        }
-    }
+    });
+    type Dropdown = InstanceType<typeof Dropdown>;
+    export default Dropdown;
 </script>

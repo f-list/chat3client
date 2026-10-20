@@ -9,32 +9,32 @@
 </template>
 
 <script lang="ts">
-    import {Component, Hook, Prop} from '@f-list/vue-ts';
+    import {PropOptions} from 'vue';
     import ContextMenu from './context_menu';
     import CopyCustomDialog from './copy_custom_dialog.vue';
 
-    @Component({
-        components: {'copy-dialog': CopyCustomDialog}
-    })
-    export default class CopyCustomMenu extends ContextMenu {
-        @Prop({required: true})
-        readonly propName!: string;
-
-        itemSelected(element: HTMLElement): void {
-            const getName = (children: ReadonlyArray<HTMLElement>): string => {
-                for(const child of children)
-                    if(child.className === 'kink-name')
-                        return child.textContent!;
-                return 'Unknown';
-            };
-            const name = getName(<any>element.children); //tslint:disable-line:no-any
-            const description = element.title;
-            (<CopyCustomDialog>this.$refs['copy-dialog']).showDialog(name, description);
-        }
-
-        @Hook('mounted')
+    const CopyCustomMenu = ContextMenu.extend({
+        components: {'copy-dialog': CopyCustomDialog},
+        props: {
+            propName: {required: true} as PropOptions<string>
+        },
         mounted(): void {
             this.bindOffclick();
+        },
+        methods: {
+            itemSelected(element: HTMLElement): void {
+                const getName = (children: ReadonlyArray<HTMLElement>): string => {
+                    for(const child of children)
+                        if(child.className === 'kink-name')
+                            return child.textContent!;
+                    return 'Unknown';
+                };
+                const name = getName(<any>element.children); //tslint:disable-line:no-any
+                const description = element.title;
+                (<CopyCustomDialog>this.$refs['copy-dialog']).showDialog(name, description);
+            }
         }
-    }
+    });
+    type CopyCustomMenu = InstanceType<typeof CopyCustomMenu>;
+    export default CopyCustomMenu;
 </script>
