@@ -76,6 +76,7 @@ function openIncognito(url: string): void {
                 .toString().trim().toLowerCase();
         } catch(e) {
             console.error(e);
+            browser = '';
         }
     const commands = {
         chrome: 'chrome.exe', firefox: 'firefox.exe', vivaldi: 'vivaldi.exe', opera: 'opera.exe'
