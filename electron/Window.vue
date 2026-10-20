@@ -195,7 +195,6 @@
             tray.on('click', (_) => this.trayClicked(tab));
             const view = new remote.BrowserView({
                 webPreferences: {
-                    webviewTag: true,
                     nodeIntegration: true,
                     nodeIntegrationInWorker: true,
                     spellcheck: true,
