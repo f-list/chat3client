@@ -3,15 +3,31 @@ import * as path from 'path';
 
 type StoreData = {[key: string]: string};
 
+type SafeStorageLike = {
+    isEncryptionAvailable(): boolean
+    encryptString(plainText: string): Buffer
+    decryptString(encrypted: Buffer): string
+};
+
+type ElectronLike = {
+    app: {getPath(name: 'userData'): string}
+    safeStorage: SafeStorageLike
+};
+
+// ^ Replaces keytar: secrets are encrypted with the OS keychain via safeStorage and kept in a JSON file under userData.
+// Passwords saved by older keytar-based builds are not migrated; users have to re-enter them once.
 export class SecureStore {
     constructor(
         private storeName: string,
-        private electronRemote: any
+        private electron: ElectronLike
     ) {}
 
+    isAvailable(): boolean {
+        return this.electron.safeStorage.isEncryptionAvailable();
+    }
+
     private getStorePath(): string {
-        const baseDir = this.electronRemote.app.getPath('userData');
-        const storeDir = path.join(baseDir, 'data');
+        const storeDir = path.join(this.electron.app.getPath('userData'), 'data');
         fs.mkdirSync(storeDir, {recursive: true});
         return path.join(storeDir, `${this.storeName}.json`);
     }
@@ -31,33 +47,32 @@ export class SecureStore {
     }
 
     private writeStore(data: StoreData): void {
-        const storePath = this.getStorePath();
-        fs.writeFileSync(storePath, JSON.stringify(data));
+        fs.writeFileSync(this.getStorePath(), JSON.stringify(data), {mode: 0o600});
     }
 
-    async setPassword(domain: string, account: string, password: string): Promise<void> {
-        if(this.electronRemote.safeStorage.isEncryptionAvailable() === false) return;
-        const buffer = this.electronRemote.safeStorage.encryptString(password);
+    /** Returns false when the OS provides no encryption, in which case nothing is stored. */
+    async setPassword(domain: string, account: string, password: string): Promise<boolean> {
+        if(!this.isAvailable()) return false;
         const store = this.readStore();
-        store[this.getKey(domain, account)] = buffer.toString('binary');
+        store[this.getKey(domain, account)] = this.electron.safeStorage.encryptString(password).toString('base64');
         this.writeStore(store);
+        return true;
     }
 
     async deletePassword(domain: string, account: string): Promise<void> {
-        if(this.electronRemote.safeStorage.isEncryptionAvailable() === false) return;
         const store = this.readStore();
-        delete store[this.getKey(domain, account)];
+        const key = this.getKey(domain, account);
+        if(!(key in store)) return;
+        delete store[key];
         this.writeStore(store);
     }
 
     async getPassword(domain: string, account: string): Promise<string | null> {
-        if(this.electronRemote.safeStorage.isEncryptionAvailable() === false) return null;
-        const store = this.readStore();
-        const pw = store[this.getKey(domain, account)];
-        if(!pw) return null;
+        if(!this.isAvailable()) return null;
+        const encrypted = this.readStore()[this.getKey(domain, account)];
+        if(encrypted === undefined) return null;
         try {
-            const buffer = Buffer.from(pw.toString(), 'binary');
-            return this.electronRemote.safeStorage.decryptString(buffer);
+            return this.electron.safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
         } catch {
             return null;
         }

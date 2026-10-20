@@ -42,6 +42,7 @@ const strings: {[key: string]: string | undefined} = {
     'login.host': 'Host',
     'login.advanced': 'Show advanced settings',
     'login.save': 'Save login',
+    'login.saveUnavailable': 'Your password cannot be saved because this system provides no secure storage.',
     'login.error': 'Error logging you in: Could not connect to server',
     'login.submit': 'Log in',
     'login.working': 'Logging in...',

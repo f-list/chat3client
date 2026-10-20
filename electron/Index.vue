@@ -37,7 +37,9 @@
                         <label for="advanced"><input type="checkbox" id="advanced" v-model="showAdvanced"/> {{l('login.advanced')}}</label>
                     </div>
                     <div class="form-group">
-                        <label for="save"><input type="checkbox" id="save" v-model="saveLogin"/> {{l('login.save')}}</label>
+                        <label for="save" :title="canSaveLogin ? '' : l('login.saveUnavailable')">
+                            <input type="checkbox" id="save" v-model="saveLogin" :disabled="!canSaveLogin"/> {{l('login.save')}}
+                        </label>
                     </div>
                     <div class="form-group" style="margin:0;text-align:right">
                         <button class="btn btn-primary" @click="login" :disabled="loggingIn">
@@ -112,6 +114,7 @@
     export default class Index extends Vue {
         showAdvanced = false;
         saveLogin = false;
+        canSaveLogin = keyStore.isAvailable();
         loggingIn = false;
         password = '';
         character?: string;
@@ -127,7 +130,8 @@
 
         @Hook('created')
         created(): void {
-            if(this.settings.account.length > 0) this.saveLogin = true;
+            if(this.settings.account.length > 0) this.saveLogin = this.canSaveLogin;
+            if(!this.canSaveLogin) log.warn('OS encryption is unavailable; passwords will not be saved.');
             keyStore.getPassword('f-list.net', this.settings.account)
                 .then((value: string | null) => this.password = value || '', (err: Error) => this.error = err.message);
 
@@ -167,7 +171,8 @@
                 }
                 if(this.saveLogin) {
                     electron.ipcRenderer.send('save-login', this.settings.account, this.settings.host);
-                    await keyStore.setPassword('f-list.net', this.settings.account, this.password);
+                    if(!await keyStore.setPassword('f-list.net', this.settings.account, this.password))
+                        this.error = l('login.saveUnavailable');
                 }
                 Socket.host = this.settings.host;
 
