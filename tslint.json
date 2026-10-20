@@ -171,8 +171,6 @@
       "check-preblock",
       "check-type-operator",
       "check-rest-spread"
-    ],
-    "vue-props": true
-  },
-  "rulesDirectory": ["./tslint"]
+    ]
+  }
 }

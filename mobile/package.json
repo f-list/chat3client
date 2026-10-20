@@ -12,7 +12,6 @@
     "watch": "node ../webpack watch"
   },
   "dependencies": {
-    "@f-list/vue-ts": "^1.0.3",
     "@fortawesome/fontawesome-free": "^5.9.0",
     "axios": "^0.30.0",
     "bootstrap": "^4.3.1",

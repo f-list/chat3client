@@ -1,7 +1,6 @@
 const path = require('path');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const VueLoaderPlugin = require('vue-loader/lib/plugin');
-const vueTransformer = require('../tools/vue-ts-transform');
 const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
 
 const config = {
@@ -21,8 +20,7 @@ const config = {
                 options: {
                     appendTsSuffixTo: [/\.vue$/],
                     configFile: __dirname + '/tsconfig.json',
-                    transpileOnly: true,
-                    getCustomTransformers: () => ({before: [vueTransformer]})
+                    transpileOnly: true
                 }
             },
             {

@@ -3,7 +3,6 @@ const fs = require('fs');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const VueLoaderPlugin = require('vue-loader/lib/plugin');
-const vueTransformer = require('../tools/vue-ts-transform');
 const CopyPlugin = require('copy-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const { DefinePlugin } = require('webpack');
@@ -88,8 +87,7 @@ const mainConfig = {
                 options: {
                     appendTsSuffixTo: [/\.vue$/],
                     configFile: __dirname + '/tsconfig-renderer.json',
-                    transpileOnly: true,
-                    getCustomTransformers: () => ({before: [vueTransformer]})
+                    transpileOnly: true
                 }
             },
             {
