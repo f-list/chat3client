@@ -116,11 +116,21 @@ async function addSpellcheckerItems(menu: Electron.Menu): Promise<void> {
         }));
 }
 
+// ! Chat content is user-supplied, so links reaching the OS must be limited to protocols that can't launch arbitrary handlers.
+function isSafeExternalUrl(linkUrl: string): boolean {
+    try {
+        return ['http:', 'https:', 'mailto:'].indexOf(new url.URL(linkUrl).protocol) !== -1;
+    } catch {
+        return false;
+    }
+}
+
 function setUpWebContents(webContents: Electron.WebContents): void {
     const handleLink = (linkUrl: string) => {
         const profileMatch = linkUrl.match(/^https?:\/\/(www\.)?f-list.net\/c\/([^/#]+)\/?#?/);
         if(profileMatch !== null && settings.profileViewer) webContents.send('open-profile', decodeURIComponent(profileMatch[2]));
-        else return electron.shell.openExternal(linkUrl);
+        else if(isSafeExternalUrl(linkUrl)) return electron.shell.openExternal(linkUrl);
+        else log.warn(`Refusing to open link with unsupported protocol: ${linkUrl}`);
     };
 
     webContents.on('will-navigate', (event, linkUrl) => {
