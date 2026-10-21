@@ -119,4 +119,6 @@ We follow semantic versioning:
 
 ## Style guidelines
 
-Currently none lol (TODO, Linting. Shivers.)
+- `pnpm lint` runs ESLint (typescript-eslint and eslint-plugin-vue) over all TypeScript and Vue sources. Keep it at zero errors.
+- `pnpm typecheck` runs vue-tsc over every build target, including `.vue` files. Keep it clean.
+- Components use the Vue options API via `Vue.extend`; type props with `PropOptions<T>` and use `unset<T>()` from `chat/common.ts` for data that is assigned before use.
