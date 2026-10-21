@@ -9,6 +9,7 @@
     "noEmitHelpers": true,
     "importHelpers": true,
     "strict": true,
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true
