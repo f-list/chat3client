@@ -47,9 +47,9 @@
     const Modal = Vue.extend({
         props: {
             action: {default: ''} as PropOptions<string>,
-            dialogClass: {} as PropOptions<{string: boolean} | undefined>,
+            dialogClass: {} as PropOptions<{[key: string]: boolean} | undefined>,
             buttons: {default: true} as PropOptions<boolean>,
-            buttonClass: {default: () => ({'btn-primary': true})} as PropOptions<{string: boolean}>,
+            buttonClass: {default: () => ({'btn-primary': true})} as PropOptions<{[key: string]: boolean}>,
             disabled: {} as PropOptions<boolean | undefined>,
             showCancel: {default: true} as PropOptions<boolean>,
             buttonText: {} as PropOptions<string | undefined>

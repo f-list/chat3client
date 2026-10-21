@@ -151,7 +151,7 @@
             logs: Logs, 'message-view': MessageView, bbcode: BBCodeView(core.bbCodeParser), 'command-help': CommandHelp
         },
         props: {
-            reportDialog: {required: true} as PropOptions<ReportDialog>
+            reportDialog: {required: true} as PropOptions<InstanceType<typeof ReportDialog>>
         },
         data() {
             return {
@@ -219,7 +219,7 @@
                 title: 'Help\n\nClick this button for a quick overview of slash commands.',
                 tag: '?',
                 icon: 'fa-question',
-                handler: () => (<CommandHelp>this.$refs['helpDialog']).show()
+                handler: () => (<InstanceType<typeof CommandHelp>>this.$refs['helpDialog']).show()
             }];
             window.addEventListener('resize', this.resizeHandler = () => this.keepScroll());
             window.addEventListener('keypress', this.keypressHandler = () => {
@@ -375,13 +375,13 @@
                 }
             },
             showLogs(): void {
-                (<Logs>this.$refs['logsDialog']).show();
+                (<InstanceType<typeof Logs>>this.$refs['logsDialog']).show();
             },
             showSettings(): void {
-                (<ConversationSettings>this.$refs['settingsDialog']).show();
+                (<InstanceType<typeof ConversationSettings>>this.$refs['settingsDialog']).show();
             },
             showManage(): void {
-                (<ManageChannel>this.$refs['manageDialog']).show();
+                (<InstanceType<typeof ManageChannel>>this.$refs['manageDialog']).show();
             },
             hasSFC(message: Conversation.Message): message is Conversation.SFCMessage {
                 return (<Partial<Conversation.SFCMessage>>message).sfc !== undefined;

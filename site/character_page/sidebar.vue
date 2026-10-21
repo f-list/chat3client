@@ -44,8 +44,10 @@
             </div>
 
             <div class="quick-info-block">
-                <infotag-item v-for="id in quickInfoIds" v-if="character.character.infotags[id]" :infotag="getInfotag(id)"
-                    :data="character.character.infotags[id]" :key="id"></infotag-item>
+                <template v-for="id in quickInfoIds">
+                    <infotag-item v-if="character.character.infotags[id]" :infotag="getInfotag(id)"
+                        :data="character.character.infotags[id]" :key="id"></infotag-item>
+                </template>
                 <div class="quick-info">
                     <span class="quick-info-label">Created: </span>
                     <span class="quick-info-value"><date :time="character.character.created_at"></date></span>

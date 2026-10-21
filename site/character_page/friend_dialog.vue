@@ -168,7 +168,7 @@
                 }
             },
             async show(): Promise<void> {
-                CustomDialog.options.methods!.show.call(this);
+                this.dialog.show();
                 try {
                     this.loading = true;
                     const friendData = await methods.characterFriends(this.character.character.id);

@@ -272,22 +272,22 @@
                 if(confirm(l('chat.confirmLeave'))) core.connection.close();
             },
             showSettings(): void {
-                (<SettingsView>this.$refs['settingsDialog']).show();
+                (<InstanceType<typeof SettingsView>>this.$refs['settingsDialog']).show();
             },
             showSearch(): void {
-                (<CharacterSearch>this.$refs['searchDialog']).show();
+                (<InstanceType<typeof CharacterSearch>>this.$refs['searchDialog']).show();
             },
             showRecent(): void {
-                (<RecentConversations>this.$refs['recentDialog']).show();
+                (<InstanceType<typeof RecentConversations>>this.$refs['recentDialog']).show();
             },
             showChannels(): void {
-                (<ChannelList>this.$refs['channelsDialog']).show();
+                (<InstanceType<typeof ChannelList>>this.$refs['channelsDialog']).show();
             },
             showStatus(): void {
-                (<StatusSwitcher>this.$refs['statusDialog']).show();
+                (<InstanceType<typeof StatusSwitcher>>this.$refs['statusDialog']).show();
             },
             userMenuHandle(e: MouseEvent | TouchEvent): void {
-                (<UserMenu>this.$refs['userMenu']).handleEvent(e);
+                (<InstanceType<typeof UserMenu>>this.$refs['userMenu']).handleEvent(e);
             },
             getClasses(conversation: Conversation): string {
                 return conversation === core.conversations.selectedConversation ? ' active' : unreadClasses[conversation.unread];

@@ -105,7 +105,7 @@
     require('@electron/remote/main').enable(webContents);
     const parent = remote.getCurrentWindow().webContents;
 
-    const keyStore = new SecureStore('fchat-accounts', remote);
+    const keyStore = new SecureStore('fchat-accounts', remote.require('electron'));
 
     const Index = Vue.extend({
         components: {chat: Chat, modal: Modal, characterPage: CharacterPage, logs: Logs},
@@ -152,14 +152,14 @@
             electron.ipcRenderer.on('settings',
                 (_event: Electron.IpcRendererEvent, settings: GeneralSettings) => core.state.generalSettings = this.settings = settings);
             electron.ipcRenderer.on('open-profile', (_event: Electron.IpcRendererEvent, name: string) => {
-                const profileViewer = <Modal>this.$refs['profileViewer'];
+                const profileViewer = <InstanceType<typeof Modal>>this.$refs['profileViewer'];
                 this.profileName = name;
                 profileViewer.show();
             });
             electron.ipcRenderer.on('fix-logs', async() => {
                 this.fixCharacters = await core.settingsStore.getAvailableCharacters();
                 this.fixCharacter = this.fixCharacters[0];
-                (<Modal>this.$refs['fixLogsModal']).show();
+                (<InstanceType<typeof Modal>>this.$refs['fixLogsModal']).show();
             });
             window.addEventListener('keydown', (e) => {
                 if(getKey(e) === Keys.Tab && e.ctrlKey && !e.altKey && !e.shiftKey)
@@ -198,9 +198,9 @@
                         if((await core.settingsStore.get('settings')) === undefined &&
                             SlimcatImporter.canImportCharacter(core.connection.character)) {
                             if(!confirm(l('importer.importGeneral'))) return core.settingsStore.set('settings', new Settings());
-                            (<Modal>this.$refs['importModal']).show(true);
+                            (<InstanceType<typeof Modal>>this.$refs['importModal']).show(true);
                             await SlimcatImporter.importCharacter(core.connection.character, (progress) => this.importProgress = progress);
-                            (<Modal>this.$refs['importModal']).hide();
+                            (<InstanceType<typeof Modal>>this.$refs['importModal']).hide();
                         }
                     });
                     core.connection.onEvent('connected', () => {
@@ -260,7 +260,7 @@
                 return remote.shell.openExternal(`https://www.f-list.net/c/${this.profileName}`);
             },
             showLogs(): void {
-                (<Logs>this.$refs['logsDialog']).show();
+                (<InstanceType<typeof Logs>>this.$refs['logsDialog']).show();
             }
         }
     });

@@ -24,7 +24,7 @@
             <div :class="canZip ? 'col-sm-8 col-10 col-xl-9' : 'col-sm-10'">
                 <filterable-select v-model="selectedConversation" :options="conversations" :filterFunc="filterConversation"
                                    :placeholder="l('filter')">
-                    <template slot-scope="s">
+                    <template v-slot="s">
                         {{s.option && ((s.option.key[0] == '#' ? '#' : '') + s.option.name) || l('logs.selectConversation')}}
                     </template>
                 </filterable-select>
@@ -67,7 +67,7 @@
     import FilterableSelect from '../components/FilterableSelect.vue';
     import Modal from '../components/Modal.vue';
     import {Keys} from '../keys';
-    import {formatTime, getKey, messageToString} from './common';
+    import {formatTime, getKey, messageToString, unset} from './common';
     import core from './core';
     import {Conversation, Logs as LogInterface} from './interfaces';
     import l from './localize';
@@ -112,7 +112,7 @@
                 dateOffset: -1,
                 windowStart: 0,
                 windowEnd: 0,
-                resizeListener: async() => this.onMessagesScroll(),
+                resizeListener: unset<() => Promise<void>>(),
                 lockScroll: false,
                 lastScroll: -1
             };
@@ -135,6 +135,7 @@
             showFilters: 'onFilterToggle'
         },
         async mounted(): Promise<void> {
+            this.resizeListener = async() => this.onMessagesScroll();
             this.characters = await core.logs.getAvailableCharacters();
             window.addEventListener('resize', this.resizeListener);
         },

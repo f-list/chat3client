@@ -113,7 +113,7 @@
         },
         async created(): Promise<void> {
             document.addEventListener('open-profile', (e: Event) => {
-                const profileViewer = <Modal>this.$refs['profileViewer'];
+                const profileViewer = <InstanceType<typeof Modal>>this.$refs['profileViewer'];
                 this.profileName = (<Event & {detail: string}>e).detail;
                 profileViewer.show();
             });

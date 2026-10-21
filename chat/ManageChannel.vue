@@ -55,7 +55,7 @@
         data() {
             return {
                 modes: channelModes,
-                isPublic: this.channelIsPublic,
+                isPublic: core.channels.openRooms[this.channel.id] !== undefined,
                 mode: this.channel.mode,
                 description: this.channel.description,
                 l: l,

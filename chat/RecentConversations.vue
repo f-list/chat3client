@@ -4,8 +4,9 @@
             :tabs="[l('chat.pms'), l('chat.channels')]"></tabs>
         <div>
             <div v-show="selectedTab === '0'" class="recent-conversations">
-                <user-view v-for="recent in recentPrivate" v-if="recent.character"
-                    :key="recent.character" :character="getCharacter(recent.character)"></user-view>
+                <template v-for="recent in recentPrivate">
+                    <user-view v-if="recent.character" :key="recent.character" :character="getCharacter(recent.character)"></user-view>
+                </template>
             </div>
             <div v-show="selectedTab === '1'" class="recent-conversations">
                 <channel-view v-for="recent in recentChannels" :key="recent.channel" :id="recent.channel"

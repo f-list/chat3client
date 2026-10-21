@@ -9,7 +9,7 @@ const Tabs = Vue.extend({
         if(this.$slots['default'] !== undefined) {
             children = {};
             this.$slots['default']!.forEach((child, i) => {
-                if(child.context !== undefined) children[child.key !== undefined ? child.key : i] = child;
+                if(child.context !== undefined) children[child.key !== undefined ? String(child.key) : i] = child;
             });
         } else children = this.tabs;
         const keys = Object.keys(children);

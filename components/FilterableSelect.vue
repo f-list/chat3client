@@ -31,7 +31,7 @@
         props: {
             placeholder: {} as PropOptions<string | undefined>,
             options: {required: true} as PropOptions<object[]>,
-            filterFunc: {default: () => ((filter: RegExp, value: string) => filter.test(value))} as PropOptions<(filter: RegExp, value: object) => boolean>,
+            filterFunc: {default: () => ((filter: RegExp, value: object | string) => filter.test(String(value)))} as PropOptions<(filter: RegExp, value: object | string) => boolean>,
             multiple: {} as PropOptions<true | undefined>,
             value: {} as PropOptions<object | object[] | undefined>,
             title: {} as PropOptions<string | undefined>

@@ -5,7 +5,7 @@
             <div v-show="error" class="alert alert-danger">{{error}}</div>
             <filterable-select v-model="data.kinks" :multiple="true" :placeholder="l('filter')"
                 :title="l('characterSearch.kinks')" :filterFunc="filterKink" :options="options.kinks">
-                <template slot-scope="s">{{s.option.name}}</template>
+                <template v-slot="s">{{s.option.name}}</template>
             </filterable-select>
             <filterable-select v-for="item in listItems" :multiple="true"
                 v-model="data[item]" :placeholder="l('filter')" :title="l('characterSearch.' + item)" :options="options[item]" :key="item">

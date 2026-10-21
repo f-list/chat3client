@@ -5,7 +5,7 @@
         <i v-show="!kink.hasSubkinks && kink.isCustom" class="far fa-dot-circle custom-kink-icon"></i>
         <span class="kink-name">{{ kink.name }}</span>
         <template v-if="kink.hasSubkinks">
-            <div class="subkink-list" :class="{closed: this.listClosed}">
+            <div class="subkink-list" :class="{closed: listClosed}">
                 <kink v-for="subkink in kink.subkinks" :kink="subkink" :key="subkink.id" :comparisons="comparisons"
                     :highlights="highlights"></kink>
             </div>

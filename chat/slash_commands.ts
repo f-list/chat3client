@@ -196,7 +196,7 @@ const commands: {readonly [key: string]: Command | undefined} = {
             core.connection.send('CTU', {channel: conv.channel.id, character, length}),
         permission: Permission.RoomOp,
         context: CommandContext.Channel,
-        params: [{type: ParamType.Character, delimiter: ','}, {type: ParamType.Number, validator: (x) => x >= 1}]
+        params: [{type: ParamType.Character, delimiter: ','}, {type: ParamType.Number, validator: (x) => Number(x) >= 1}]
     },
     gkick: {
         exec: (_, character: string) => core.connection.send('KIK', {character}),
@@ -217,7 +217,7 @@ const commands: {readonly [key: string]: Command | undefined} = {
         exec: (_, character: string, time: number, reason: string) =>
             core.connection.send('TMO', {character, time, reason}),
         permission: Permission.ChatOp,
-        params: [{type: ParamType.Character, delimiter: ','}, {type: ParamType.Number, validator: (x) => x >= 1}, {type: ParamType.String}]
+        params: [{type: ParamType.Character, delimiter: ','}, {type: ParamType.Number, validator: (x) => Number(x) >= 1}, {type: ParamType.String}]
     },
     setowner: {
         exec: (conv: ChannelConversation, character: string) =>

@@ -52,7 +52,7 @@
     const UserMenu = Vue.extend({
         components: {bbcode: BBCodeView(core.bbCodeParser), modal: Modal},
         props: {
-            reportDialog: {required: true} as PropOptions<ReportDialog>
+            reportDialog: {required: true} as PropOptions<InstanceType<typeof ReportDialog>>
         },
         data() {
             return {
@@ -121,7 +121,7 @@
             async showMemo(): Promise<void> {
                 this.memoLoading = true;
                 this.memo = '';
-                (<Modal>this.$refs['memo']).show();
+                (<InstanceType<typeof Modal>>this.$refs['memo']).show();
                 try {
                     const memo = await core.connection.queryApi<{note: string | null, id: number}>('character-memo-get2.php',
                         {target: this.character!.name});

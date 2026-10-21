@@ -4,12 +4,16 @@
             entries, friends, groups, and bookmarks are not duplicated.</p>
         <div class="form-row mb-2">
             <form-group-inputgroup class="col-12" :errors="errors" field="name" id="characterName" label="Name">
-                <input class="form-control" type="text" id="characterName" slot-scope="props" :class="props.cls"/>
-                <div slot="button" class="input-group-append">
+                <template v-slot="props">
+                    <input class="form-control" type="text" id="characterName" :class="props.cls"/>
+                </template>
+                <template v-slot:button>
+                    <div class="input-group-append">
                     <button type="button" class="btn btn-secondary" @click="checkName" :disabled="newName.length < 2 || checking">
                         Check Name
                     </button>
-                </div>
+                    </div>
+                </template>
                 <div slot="valid" class="valid-feedback">Name valid and unused.</div>
             </form-group-inputgroup>
         </div>

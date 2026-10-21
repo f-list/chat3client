@@ -4,8 +4,8 @@ import Modal from './Modal.vue';
 const CustomDialog = Vue.extend({
     components: {Modal},
     computed: {
-        dialog(): Modal {
-            return <Modal>this.$children[0];
+        dialog(): InstanceType<typeof Modal> {
+            return <InstanceType<typeof Modal>>this.$children[0];
         }
     },
     methods: {

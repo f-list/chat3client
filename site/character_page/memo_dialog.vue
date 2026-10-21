@@ -50,7 +50,7 @@
         },
         methods: {
             show(): void {
-                CustomDialog.options.methods!.show.call(this);
+                this.dialog.show();
                 this.setMemo();
             },
             setMemo(): void {

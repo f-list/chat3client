@@ -120,7 +120,7 @@ import {InlineDisplayMode} from '../interfaces';
                 }
             });
             core.connection.onEvent('closed', (isReconnect) => {
-                if(isReconnect) (<Modal>this.$refs['reconnecting']).show(true);
+                if(isReconnect) (<InstanceType<typeof Modal>>this.$refs['reconnecting']).show(true);
                 if(this.connected) core.notifications.playSound('logout');
                 this.connected = false;
                 this.connecting = false;
@@ -135,7 +135,7 @@ import {InlineDisplayMode} from '../interfaces';
                 if(core.state.settings.notifications) await core.notifications.requestPermission();
             });
             core.connection.onEvent('connected', () => {
-                (<Modal>this.$refs['reconnecting']).hide();
+                (<InstanceType<typeof Modal>>this.$refs['reconnecting']).hide();
                 this.error = '';
                 this.connecting = false;
                 this.connected = true;
@@ -155,10 +155,10 @@ import {InlineDisplayMode} from '../interfaces';
         methods: {
             cancelReconnect(): void {
                 core.connection.close();
-                (<Modal>this.$refs['reconnecting']).hide();
+                (<InstanceType<typeof Modal>>this.$refs['reconnecting']).hide();
             },
             showLogs(): void {
-                (<Logs>this.$refs['logsDialog']).show();
+                (<InstanceType<typeof Logs>>this.$refs['logsDialog']).show();
             },
             async connect(): Promise<void> {
                 this.connecting = true;

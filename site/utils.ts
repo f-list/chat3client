@@ -32,7 +32,7 @@ export function isJSONError(error: any): error is Error & {response: AxiosRespon
 export function ajaxError(error: any, prefix: string, showFlashMessage: boolean = true): void { //tslint:disable-line:no-any
     let message: string | undefined;
     if(error instanceof Error) {
-        if(Axios.isCancel(error)) return;
+        if(Axios.isCancel(<unknown>error)) return;
 
         if(isJSONError(error)) {
             const data = <{error?: string | string[]}>error.response.data;

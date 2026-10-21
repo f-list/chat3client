@@ -13,8 +13,8 @@ const ContextMenu = Vue.extend({
         };
     },
     computed: {
-        positionStyle(): object {
-            return {left: `${this.position.left}px`, top: `${this.position.top}px;`};
+        positionStyle(): {left: string, top: string} {
+            return {left: `${this.position.left}px`, top: `${this.position.top}px`};
         }
     },
     methods: {
@@ -33,7 +33,7 @@ const ContextMenu = Vue.extend({
         },
         fixPosition(e: MouseEvent | Touch): void {
             const getMenuPosition = (input: number, direction: string): number => {
-                const win = (<Window & {[key: string]: number}>window)[`inner${direction}`];
+                const win = (<{[key: string]: number}><unknown>window)[`inner${direction}`];
                 const menu = (<HTMLElement & {[key: string]: number}>this.$refs['menu'])[`offset${direction}`];
                 let position = input;
 

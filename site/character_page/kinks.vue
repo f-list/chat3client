@@ -10,7 +10,9 @@
             <div class="form-inline">
                 <select v-model="highlightGroup" class="form-control">
                     <option :value="undefined">None</option>
-                    <option v-for="group in kinkGroups" v-if="group" :value="group.id" :key="group.id">{{group.name}}</option>
+                    <template v-for="group in kinkGroups">
+                        <option v-if="group" :value="group.id" :key="group.id">{{group.name}}</option>
+                    </template>
                 </select>
             </div>
         </div>
@@ -207,8 +209,8 @@
                 }
                 this.highlighting = toAssign;
             },
-            contextMenu(event: TouchEvent): void {
-                if(this.shared.authenticated && !this.oldApi) (<CopyCustomMenu>this.$refs['context-menu']).outerClick(event);
+            contextMenu(event: MouseEvent | TouchEvent): void {
+                if(this.shared.authenticated && !this.oldApi) (<InstanceType<typeof CopyCustomMenu>>this.$refs['context-menu']).outerClick(event);
             }
         }
     });

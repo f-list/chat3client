@@ -80,7 +80,7 @@ abstract class Conversation implements Interfaces.Conversation {
     }
 
     //tslint:disable-next-line:no-async-without-await
-    abstract async addMessage(message: Interfaces.Message): Promise<void>;
+    abstract addMessage(message: Interfaces.Message): Promise<void>;
 
     loadLastSent(): void {
         this.enteredText = this.lastSent;
