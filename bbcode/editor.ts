@@ -19,7 +19,7 @@ export interface EditorSelection {
     text: string;
 }
 /*tslint:disable:max-line-length*/
-export let defaultButtons: ReadonlyArray<EditorButton> = [
+export const defaultButtons: ReadonlyArray<EditorButton> = [
     {
         title: 'Bold (Ctrl+B)\n\nMakes text appear with a bold weight.',
         tag: 'b',

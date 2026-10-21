@@ -304,7 +304,7 @@ export class SettingsStore implements Settings.Store {
         try {
             const file = path.join(getSettingsDir(character), key);
             return <Settings.Keys[K]>JSON.parse(fs.readFileSync(file, 'utf8'));
-        } catch(e) {
+        } catch {
             return undefined;
         }
     }

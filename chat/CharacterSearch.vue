@@ -14,7 +14,7 @@
         <div v-else-if="results" class="results">
             <h4>{{l('characterSearch.results')}}</h4>
             <div v-for="character in results" :key="character.name" :class="'status-' + character.status">
-                <template v-if="character.status === 'looking'" v-once>
+                <template v-if="character.status === 'looking'">
                     <img :src="characterImage(character.name)" v-if="showAvatars"/>
                     <user :character="character" :showStatus="true"></user>
                     <bbcode :text="character.statusText"></bbcode>

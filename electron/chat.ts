@@ -92,7 +92,7 @@ function openIncognito(url: string): void {
         param = params[<keyof typeof params>key];
     }
 
-    let executableName = execSync(`where.exe /r "%ProgramFiles%" "${start}"`, { encoding: 'utf-8', timeout: 3000})
+    const executableName = execSync(`where.exe /r "%ProgramFiles%" "${start}"`, { encoding: 'utf-8', timeout: 3000})
         .trim()
         .split('\n', 2)[0];
     spawn(executableName, [param, url]);

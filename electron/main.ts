@@ -328,7 +328,7 @@ function onReady(): void {
                         checked: settings.theme === x,
                         click: () => setTheme(x),
                         label: x,
-                        type: <'radio'>'radio'
+                        type: <const>'radio'
                     }))
                 }, {
                     label: l('settings.hwAcceleration'), type: 'checkbox', checked: settings.hwAcceleration,

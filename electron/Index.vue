@@ -134,6 +134,7 @@
                     return `<style id="themeStyle">${fs.readFileSync(path.join(__dirname, `themes/${this.settings.theme}.css`))}</style>`;
                 } catch(e) {
                     if((<Error & {code: string}>e).code === 'ENOENT' && this.settings.theme !== 'default') {
+                        // eslint-disable-next-line vue/no-side-effects-in-computed-properties -- falls back when the chosen theme file is missing
                         this.settings.theme = 'default';
                         return this.styling;
                     }

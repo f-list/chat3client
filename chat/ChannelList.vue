@@ -94,7 +94,8 @@
                 this.createName = '';
             },
             setJoined(channel: Channel.ListItem): void {
-                channel.isJoined ? core.channels.leave(channel.id) : core.channels.join(channel.id);
+                if(channel.isJoined) core.channels.leave(channel.id);
+                else core.channels.join(channel.id);
             }
         }
     });
