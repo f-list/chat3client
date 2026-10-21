@@ -7,7 +7,7 @@
                 <i class="fa fa-cog"></i>
             </div>
             <ul class="nav nav-tabs" style="border-bottom:0;margin-bottom:-1px;margin-top:1px" ref="tabs">
-                <li v-for="tab in tabs" :key="tab.view.id" class="nav-item" @click.middle="remove(tab)">
+                <li v-for="tab in tabs" :key="tab.view.webContents.id" class="nav-item" @click.middle="remove(tab)">
                     <a href="#" @click.prevent="show(tab)" class="nav-link tab"
                         :class="{active: tab === activeTab, hasNew: tab.hasNew && tab !== activeTab}">
                         <img v-if="tab.user" :src="'https://static.f-list.net/images/avatar/' + tab.user.toLowerCase() + '.png'"/>
@@ -57,7 +57,7 @@
     function destroyTab(tab: Tab): void {
         if(tab.user !== undefined) electron.ipcRenderer.send('disconnect', tab.user);
         tab.tray.destroy();
-        tab.view.destroy();
+        tab.view.webContents.close();
         electron.ipcRenderer.send('tab-closed');
     }
 
